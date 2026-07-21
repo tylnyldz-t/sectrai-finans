@@ -8,7 +8,9 @@ function errorStatus(error) { return error?.message === 'REQUEST_TOO_LARGE' ? 41
 
 export default async function financeHandler(request, response) {
   if (!ownerOnly(request, response)) return
-  const pathname = new URL(request.url || '/', 'https://finance.local').pathname
+  const url = new URL(request.url || '/', 'https://finance.local')
+  const nestedPath = url.searchParams.get('__finance_path')
+  const pathname = nestedPath ? `/api/finance/${nestedPath.replace(/^\/+/, '')}` : '/api/finance'
   try {
     if (request.method === 'GET' && pathname === '/api/finance') return json(response, 200, { state: await liveStore.snapshot(), persistence: 'ephemeral-serverless' })
     if (request.method === 'POST' && pathname === '/api/finance/cashflow-scenarios') return json(response, 201, { scenario: await liveStore.createScenario(await body(request)), persistence: 'ephemeral-serverless' })

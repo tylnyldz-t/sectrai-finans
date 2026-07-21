@@ -9,7 +9,7 @@ test('cashflow creation, AI briefing, owner decision, and reload persistence wor
   await expect(page.getByRole('heading', { name: 'Kanıt görünür, karar sende.' })).toBeVisible()
   await page.getByRole('combobox', { name: 'Şablon' }).selectOption('stress')
   await page.getByRole('button', { name: 'Senaryoyu kaydet' }).click()
-  await expect(page.getByRole('status')).toContainText('yerel JSON deposuna kaydedildi')
+  await expect(page.getByRole('status')).toContainText('JSON depoya kaydedildi')
   await expect(page.getByText('Stres senaryosu · 90 gün')).toBeVisible()
   await page.getByRole('button', { name: 'AI açıklamasını hazırla' }).click()
   await expect(page.getByText('AI-GENERATED · SENTETİK DEMO')).toBeVisible()

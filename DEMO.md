@@ -32,7 +32,7 @@ Yerel API `8788` portunda çalışır; Vite `/api` isteklerini bu sunucuya yönl
 
 Yerel API `/api/finance` altında `x-sectrai-role: OWNER` başlığını zorunlu tutar; bu yerel demo sözleşmesi tek başına kimlik doğrulama değildir. Vercel’deki [`middleware.ts`](middleware.ts), `ADMIN_GATE_EMAIL`, `ADMIN_GATE_PASSWORD` ve `ADMIN_GATE_SECRET` yoksa bütün yüzeyi `503` ile kapatır. Doğru giriş `303` ile `/` konumuna, `/__admin-logout` ise çerezi silip `303` ile giriş yüzeyine döner.
 
-Canlı Vercel yüzeyi owner gate ile korunur. Yerel JSON API, Vercel’de dayanıklı kalıcılık sağlamaz; bu nedenle canlı sitede finansal kayıtların kalıcı olduğu iddia edilmez.
+Canlı Vercel yüzeyi owner gate ile korunur ve aynı sentetik API eylemlerini Vercel Node function üzerinden çalıştırır. Bu function yalnız geçici `/tmp` dosyası kullanır: instance/soğuk başlangıç değiştiğinde kayıtlar sıfırlanabilir. Bu nedenle canlı sitede finansal kayıtların kalıcı olduğu iddia edilmez; dayanıklı kalıcılık için yerel Node API kullanılmalıdır.
 
 ## Doğrulama
 

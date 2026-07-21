@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: { proxy: { '/api': 'http://localhost:8788' } },
-  test: { include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom' },
+  test: { include: ['src/**/*.test.{ts,tsx}'], environment: 'jsdom', setupFiles: ['./src/testSetup.ts'] },
 })

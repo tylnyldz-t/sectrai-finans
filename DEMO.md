@@ -1,6 +1,6 @@
-# Sectrai Finans — Investor Demo
+# Sectrai Finans — Profesyonel Hizmetler Masa Demosu
 
-`Sectrai Finans`, Finans, Sigorta & InsurTech alanı için bağımsız Vite/React/TypeScript yatırımcı demosudur. Gerçek müşteri, işlem, hesap, poliçe veya piyasa verisi kabul etmez; tüm içerik açıkça **Sentetik demo** olarak etiketlenir.
+Bu repo, muhasebe ve danışmanlık için **sentetik** bir Worker–Checker çalışma alanıdır. Gerçek müşteri, hesap, poliçe, piyasa verisi veya dış finansal işlem kabul etmez.
 
 ## Çalıştırma
 
@@ -11,28 +11,34 @@ npm run api
 npm run dev
 ```
 
-Yerel API `8788` portunda çalışır; Vite `/api` isteklerini bu sunucuya yönlendirir. `npm run build && npm start` derlenmiş istemciyi aynı Node sunucusundan sunar.
+Yerel API ilk istekte `data/finance.json` ile aynı dizinde `proofs/` klasörünü oluşturur. JSON atomik yazılır; kanıt dosyası yerelde saklanır ve SHA-256 özeti audit olayına eklenir. Bu dosyalar Git’e dahil değildir.
 
-`data/finance.json` ilk API erişiminde oluşturulur, Git’e dahil edilmez ve atomik yazılır. Bu nedenle yerel Node süreci kapatılıp yeniden başlatıldığında kayıtlar kalır. Vercel dosya sistemi kalıcı olmadığı için canlı yüzey bu JSON kalıcılığını vaat etmez; kalıcı demo akışını yerelde çalıştırın.
+## Uygulanan masa modeli
 
-## Gerçekten çalışan modüller
+- Dinamik ana konteyner: **Müvekkil / Danışmanlık Proje Dosyası**.
+- Düzenli nav: Masa → Görevler & Onaylar → Kayıt Defterleri → Ekip & RBAC → Denetim İzi → (yalnız L1) Kart Düzeni.
+- L1 masa kartlarını gerçek [Puck](https://puckeditor.com/) editörüyle ekler, siler ve sıralar. Sunucu yalnız `workflow`, `ledger`, `roles`, `audit` presetlerini kabul eder; serbest kod/CSS/props ve yinelenen kart reddedilir.
+- Sektör hiyerarşisi: L1 Yönetici Ortak, L2 Proje/Hesap Müdürü (Checker), L3 Mali Müşavir/Danışman (Worker), L4 Dokümantasyon Desteği (Field).
 
-- **Nakit akışı tahmini:** Kullanıcı yalnız izinli sentetik şablonu seçip `Senaryoyu kaydet`e bastığında 90 günlük senaryo JSON’a yazılır. Baz, gecikmiş tahsilat ve stres şablonları vardır; serbest metin veya gerçek hesap girdisi yoktur.
-- **Tahsilat riski:** Sentetik gecikme kanıtları görünür. Owner, yalnız `Takip incelemesine al` veya `İzlemede tut` kararı kaydedebilir; hiçbir tahsilat iletişimi veya işlem başlatılmaz.
-- **Hasar inceleme:** Sentetik eksik-belge kaydı için `Ek kanıt iste` veya `İncelemeyi kapat` owner kaydı yapılır. Poliçe/hasar sonucu üretmez.
-- **AML uyarıları:** Sentetik uyarı kanıtları için `Uyum incelemesine aktar` veya `Uyarıyı kapat` kayıtları vardır. Sistem AML kararı, müşteri engeli veya bildirim göndermez.
+## Worker–Checker sözleşmesi
 
-Üç inceleme modülünde kanıt zinciri boşsa backend kaydı reddeder. Her kayıt bir kez owner kararı alabilir; AI hiçbir onayı üretemez veya kendi kendine işlem yapamaz.
+1. L3 veya L4, yalnız kendisine atanmış göreve en fazla 2 MB kanıt dosyası yükler. Sunucu dosyayı yazar, SHA-256 özetini doğrular ve `PROOF_UPLOADED` audit olayı ekler.
+2. Zorunlu kanıt türlerinin tümü bulunmadan “İncelemeye gönder” arayüzde pasiftir; doğrudan API çağrısı da `PROOF_REQUIRED` ile reddedilir.
+3. L2 yalnız kendisine atanmış `PENDING_REVIEW` görevi onaylayabilir veya zorunlu gerekçeyle reddedebilir.
+4. Onaylanana kadar bağımlı görev `LOCKED` kalır. Onay sonrası ancak tüm bağımlılıkları onaylanmış görevler `READY` olur.
+5. Red, görevi `REJECTED` durumuyla worker’a döndürür; gerekçe ve olay audit izi içinde korunur.
+
+Audit API’de yalnız ekleme yoluyla yazılır; silme veya güncelleme ucu yoktur. Olaylar kullanıcı kimliği, rol, zaman, IP ve GPS alanlarını taşır. GPS bilgisi istemciden verilmezse `null`/“sağlanmadı” olarak görünür; konum uydurulmaz.
 
 ## AI sınırı
 
-`server/aiProvider.mjs` içindeki `SyntheticFinanceAIProvider`, sadece kullanıcı `AI açıklamasını hazırla` eylemine bastığında görünür sentetik kanıtları özetler. Ağ/model sağlayıcı çağrısı yapmaz. Gelecekte gerçek sağlayıcı yalnız sunucu tarafında merkezi anahtar katmanının arkasında bu sözleşmeyi uygulayabilir; geçersiz yanıt fail-closed reddedilir.
+L1/L2 “AI ön-denetimini hazırla” ile yalnız sentetik, kural-temelli risk işaretleri alabilir. Sonuç `HUMAN_REVIEW_REQUIRED` döner; kanıtı onaylamaz, görev durumu değiştirmez, finansal/hukuki/uyum kararı vermez ve dış model/ağ çağrısı yapmaz. Yanıt sözleşmesi sunucuda doğrulanır; geçersiz yanıt fail-closed reddedilir.
 
-## Owner ve dağıtım sınırı
+## Dağıtım ve erişim sınırı
 
-Yerel API `/api/finance` altında `x-sectrai-role: OWNER` başlığını zorunlu tutar; bu yerel demo sözleşmesi tek başına kimlik doğrulama değildir. Vercel’deki [`middleware.ts`](middleware.ts), `ADMIN_GATE_EMAIL`, `ADMIN_GATE_PASSWORD` ve `ADMIN_GATE_SECRET` yoksa bütün yüzeyi `503` ile kapatır. Doğru giriş `303` ile `/` konumuna, `/__admin-logout` ise çerezi silip `303` ile giriş yüzeyine döner.
+Yerel API, `x-sectrai-role` başlığında yalnız `L1_ADMIN`, `L2_CHECKER`, `L3_WORKER` veya `L4_FIELD` değerlerini kabul eder. Bu, demo RBAC sözleşmesidir; üretim kimliği yerine geçmez. Vercel middleware’i `ADMIN_GATE_EMAIL`, `ADMIN_GATE_PASSWORD` ve `ADMIN_GATE_SECRET` yoksa tüm yüzeyi 503 ile kapatır.
 
-Canlı Vercel yüzeyi owner gate ile korunur ve aynı sentetik API eylemlerini Vercel Node function üzerinden çalıştırır. Bu function yalnız geçici `/tmp` dosyası kullanır: instance/soğuk başlangıç değiştiğinde kayıtlar sıfırlanabilir. Bu nedenle canlı sitede finansal kayıtların kalıcı olduğu iddia edilmez; dayanıklı kalıcılık için yerel Node API kullanılmalıdır.
+Vercel function `/tmp` kullanır; instance değiştiğinde kanıtlar ve JSON kaydı kaybolabilir. Bu nedenle canlı yüzeyde dayanıklı kalıcılık iddia edilmez.
 
 ## Doğrulama
 
@@ -41,4 +47,4 @@ npm run verify
 npm run test:e2e
 ```
 
-Sunucu testleri soğuk yeniden başlatma sonrası senaryo/owner karar kalıcılığını, owner-only HTTP sınırını, dört modülün API akışını, geçersiz şablon/kararları ve geçersiz AI yanıtını doğrular. Chromium E2E; senaryo oluşturma, kullanıcı-başlatan AI özeti, owner kararı ve sayfa yenilemesi sonrası kalıcılığı dener.
+Testler kanıtsız/izinsiz geçişlerin reddini, SHA-256 kanıt saklamayı, gerekçeli red döngüsünü, sıradaki görev kilidini, RBAC görünürlüğünü, AI ön-denetim sözleşmesini ve tarayıcıdaki worker → checker → kalıcılık akışını doğrular.

@@ -1,15 +1,17 @@
 /** Future real providers must be server-side, gateway-managed, and fail closed. */
 export class SyntheticFinanceAIProvider {
-  async explain({ module, item }) {
-    const labels = {
-      collections: 'tahsilat riski',
-      claims: 'hasar inceleme kaydı',
-      aml: 'AML uyarı kaydı',
-    }
+  async assess({ task }) {
+    const signals = []
+    if (task.evidence.length === 0) signals.push('Zorunlu kanıt henüz yüklenmedi.')
+    if (task.status === 'PENDING_REVIEW') signals.push('Checker incelemesi insan onayı olmadan tamamlanamaz.')
+    if (task.status === 'REJECTED') signals.push('Red gerekçesindeki revizyon worker tarafından kapatılmalı.')
+    if (task.status === 'LOCKED') signals.push('Bağımlı önceki görev onaylanana kadar adım kilitli.')
+    if (signals.length === 0) signals.push('Kural-temelli ön denetimde ek gecikme sinyali yok; insan incelemesi yine zorunlu.')
     return {
-      label: 'AI-GENERATED · SENTETİK DEMO',
-      text: `${item.title} için ${labels[module]} görünümü, yalnız görünür sentetik kanıtları özetler: ${item.evidence.join(' ')} Bu bir finansal, hukuki veya uyum kararı değildir.`,
-      evidenceIds: item.evidenceIds,
+      label: 'AI-ASSISTED · SENTETİK DEMO',
+      taskId: task.id,
+      signals,
+      decision: 'HUMAN_REVIEW_REQUIRED',
     }
   }
 }

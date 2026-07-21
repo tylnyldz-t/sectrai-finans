@@ -8,7 +8,7 @@
     "api": "node server/index.mjs",
     "start": "node server/index.mjs",
     "typecheck": "tsc -b --pretty false",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "oxlint",
     "test": "vitest run && node --test server/*.test.mjs",
     "test:e2e": "playwright test",
@@ -17,6 +17,7 @@
   "dependencies": {
     "@puckeditor/core": "^0.22.2",
     "@vercel/functions": "^3.7.5",
+    "lucide-react": "^0.469.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

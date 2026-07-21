@@ -12,4 +12,3 @@ export function rich(text: string): ReactNode {
     </Fragment>
   ));
 }
-

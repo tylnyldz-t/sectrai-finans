@@ -31,4 +31,3 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   }, [theme]);
   return { theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) };
 }
-

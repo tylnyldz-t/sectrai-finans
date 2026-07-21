@@ -25,4 +25,3 @@ export function RouterProvider({ children }: { children: ReactNode }) {
 }
 
 export const useRouter = () => useContext(Ctx);
-

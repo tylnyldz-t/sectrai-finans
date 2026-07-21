@@ -1,19 +1,129 @@
-import { useState, type FormEvent } from 'react'
+// F6 Masa — AI Operatör paneli (orta sütun). "Konuş, o yapsın — sen onayla":
+// kullanıcı chat'te "Masa'da şunları görmek istiyorum: X, Y" der → operatör eşleşen modül
+// kartlarını ÖNERİR → kullanıcı "Ekle" ile ONAYLAYINCA Masa canvas'ına döşenir. AI kendi
+// başına eklemez (maker-checker). Eşleşmeyen istekler için Modül Studio'ya yönlendirir.
 
-export function AiOperator({ context, onCollapse }: { context: string; onCollapse: () => void }) {
-  const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([])
-  const send = (event: FormEvent) => {
-    event.preventDefault()
-    const text = input.trim()
-    if (!text) return
-    setMessages((current) => [...current, { role: 'user', text }, { role: 'ai', text: 'Öneri hazır. Finans kaydı ancak kanıt ve insan onayı ile değişir.' }])
-    setInput('')
-  }
-  return <aside className="masa-op" aria-label="AI Operatör">
-    <div className="masa-op-head"><span className="masa-op-ic" aria-hidden="true">✦</span><div className="masa-op-titles"><div className="masa-op-title">SECTRAI AI Operatör</div><div className="masa-op-sub">Konuş, o yapsın — sen onayla</div></div><button className="masa-ic" title="Paneli kapat" aria-label="AI panelini kapat" onClick={onCollapse}>‹</button></div>
-    <div className="masa-op-ctx"><span className="masa-op-chip">{context}</span></div>
-    <div className="masa-op-body">{messages.length ? <div className="masa-op-thread">{messages.map((message, index) => <div className={'masa-op-bubble ' + message.role} key={index}>{message.text}</div>)}</div> : <div className="masa-op-intro"><p className="masa-op-intro-t">Ne yapmak istersin? Komutun öneri olarak hazırlanır.</p><p className="masa-op-note">AI önerir; finans kaydı insan onayı ve kanıt zinciri olmadan değişmez.</p></div>}</div>
-    <div className="masa-op-foot"><form className="masa-op-input" onSubmit={send}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Komutunu yaz…" aria-label="AI operatöre komut" /><button type="submit" className="masa-ic send" title="Gönder" aria-label="Gönder" disabled={!input.trim()}>↑</button></form></div>
-  </aside>
+import { useState, type FormEvent } from 'react';
+import { Mic, Paperclip, PanelLeftClose, Send, Sparkles, LayoutGrid } from 'lucide-react';
+
+interface Proposal { ids: string[]; labels: string[]; unmatched: string[] }
+interface Msg { role: 'user' | 'ai'; text: string; proposal?: Proposal; done?: boolean }
+
+export function AiOperator({
+  workspaceTitle,
+  moduleLabels,
+  onCommand,
+  onApplyCards,
+  onCollapse,
+}: {
+  workspaceTitle: string;
+  moduleLabels: string[];
+  /** Kullanıcı komutunu modüllere eşler: yanıt + eşleşen kartlar + eşleşmeyen istekler. */
+  onCommand: (text: string) => { reply: string; proposal: Proposal | null };
+  /** Onaylanan kart id'lerini Masa canvas'ına döşer (aç + öne al). */
+  onApplyCards: (ids: string[]) => void;
+  onCollapse: () => void;
+}) {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState('');
+  const [realMode, setRealMode] = useState(false);
+  const [voice, setVoice] = useState(false);
+  const [autonomy, setAutonomy] = useState(false);
+
+  const examples = [
+    'Masa\'da ' + (moduleLabels.slice(0, 2).join(' ve ') || 'modülleri') + ' görmek istiyorum',
+    moduleLabels[0] ? `${moduleLabels[0]} için yeni kayıt ekle` : 'Yeni kayıt ekle',
+    'Bu ayın özetini çıkar',
+  ];
+
+  const send = (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    const { reply, proposal } = onCommand(t);
+    setMessages((m) => [...m, { role: 'user', text: t }, { role: 'ai', text: reply, proposal: proposal ?? undefined }]);
+    setInput('');
+  };
+  const submit = (e: FormEvent) => { e.preventDefault(); send(input); };
+
+  const accept = (index: number, p: Proposal) => {
+    onApplyCards(p.ids);
+    setMessages((m) => m.map((msg, i) => i === index ? { ...msg, done: true } : msg));
+    setMessages((m) => [...m, { role: 'ai', text: `✓ ${p.labels.length} kart Masa'na eklendi ve öne alındı.` }]);
+  };
+  const dismiss = (index: number) => setMessages((m) => m.map((msg, i) => i === index ? { ...msg, done: true } : msg));
+
+  return (
+    <aside className="masa-op" aria-label="AI Operatör">
+      <div className="masa-op-head">
+        <span className="masa-op-ic" aria-hidden="true"><Sparkles size={15} /></span>
+        <div className="masa-op-titles">
+          <div className="masa-op-title">SECTRAI AI Operatör</div>
+          <div className="masa-op-sub">Konuş, o yapsın — sen onayla</div>
+        </div>
+        <button className="masa-ic" title="Paneli kapat" aria-label="AI panelini kapat" onClick={onCollapse}>
+          <PanelLeftClose size={15} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="masa-op-ctx"><span className="masa-op-chip">{workspaceTitle}</span></div>
+
+      <div className="masa-op-body">
+        {messages.length === 0 ? (
+          <div className="masa-op-intro">
+            <p className="masa-op-intro-t">Ne yapmak istersin? Masa'da görmek istediklerini yaz — kartlarla döşeyeyim:</p>
+            <div className="masa-op-examples">
+              {examples.map((ex) => (
+                <button key={ex} type="button" className="masa-op-ex" onClick={() => send(ex)}>{ex}</button>
+              ))}
+            </div>
+            <p className="masa-op-note">Önce öneririm, sen onaylayınca Masa'na eklenir — AI kendi başına eklemez.</p>
+          </div>
+        ) : (
+          <div className="masa-op-thread">
+            {messages.map((m, i) => (
+              <div key={i} className={`masa-op-bubble ${m.role}`}>
+                <div>{m.text}</div>
+                {m.proposal && !m.done && (
+                  <div className="masa-op-proposal">
+                    <div className="masa-op-proposal-t"><LayoutGrid size={13} aria-hidden="true" /> Masa'na eklenecek kartlar</div>
+                    <div className="masa-op-proposal-chips">
+                      {m.proposal.labels.map((l) => <span key={l} className="masa-op-chip sm">{l}</span>)}
+                    </div>
+                    {m.proposal.unmatched.length > 0 && (
+                      <p className="masa-op-proposal-note">Eşleşmeyen: {m.proposal.unmatched.join(', ')} — Modül Studio ile yeni modül oluşturabilirsin.</p>
+                    )}
+                    <div className="masa-op-proposal-actions">
+                      <button type="button" className="masa-op-accept" disabled={m.proposal.ids.length === 0} onClick={() => accept(i, m.proposal!)}>Kartları ekle</button>
+                      <button type="button" className="masa-op-dismiss" onClick={() => dismiss(i)}>Vazgeç</button>
+                    </div>
+                  </div>
+                )}
+                {m.done && <small className="masa-op-done">✓ uygulandı</small>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="masa-op-foot">
+        <div className="masa-op-modes">
+          <button type="button" className={`masa-mode${realMode ? ' on' : ''}`} onClick={() => setRealMode((v) => !v)} title="Gerçek-mod: kapalıyken gölge (yazma yok)">
+            {realMode ? 'Gerçek-mod' : 'Gölge mod'}
+          </button>
+          <button type="button" className={`masa-mode${voice ? ' on' : ''}`} onClick={() => setVoice((v) => !v)} title="Sesli giriş (önizleme)">
+            {voice ? 'Ses açık' : 'Ses kapalı'}
+          </button>
+          <button type="button" className={`masa-mode${autonomy ? ' on' : ''}`} onClick={() => setAutonomy((v) => !v)} title="Otonom mod: kapalıyken her adım onay ister">
+            {autonomy ? 'Otonom açık' : 'Otonom kapalı'}
+          </button>
+        </div>
+        <form className="masa-op-input" onSubmit={submit}>
+          <button type="button" className="masa-ic" title="Ek (önizleme)" aria-label="Ek ekle"><Paperclip size={15} aria-hidden="true" /></button>
+          <button type="button" className="masa-ic" title="Sesle yaz (önizleme)" aria-label="Sesle yaz"><Mic size={15} aria-hidden="true" /></button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Masa'da ne görmek istersin?…" aria-label="AI operatöre komut" />
+          <button type="submit" className="masa-ic send" title="Gönder" aria-label="Gönder" disabled={!input.trim()}><Send size={15} aria-hidden="true" /></button>
+        </form>
+      </div>
+    </aside>
+  );
 }

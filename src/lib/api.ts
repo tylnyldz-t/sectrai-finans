@@ -12,7 +12,7 @@ export type CashflowScenario = { id: string; templateId: string; title: string; 
 export type FinanceCase = { id: string; title: string; amount: number; confidence: number; evidenceIds: string[]; evidence: string[]; status: string }
 export type FinanceState = {
   synthetic: true
-  workspace: { id: string; sector: 'PROFESSIONAL_SERVICES'; sectorLabel: string; containerTerm: 'Müvekkil / Danışmanlık Proje Dosyası'; container: { id: string; title: string; client: string; status: string } }
+  workspace: { id: string; sector: 'PROFESSIONAL_SERVICES'; sectorLabel: string; containerTerm: 'Müvekkil / Danışmanlık Proje Dosyası'; container: { id: string; title: string; client: string; status: string }; masaLayout: Array<{ id: CardType; x: number; y: number; w: number; h: number; z: number; pinned: boolean; collapsed: boolean }> }
   cards: Array<{ type: CardType }>
   team: TeamMember[]
   tasks: Task[]
@@ -36,6 +36,7 @@ async function request<T>(role: Role, path: string, init?: RequestInit): Promise
 export async function getFinance(role: Role): Promise<FinanceState> { return (await request<{ state: FinanceState }>(role, '/api/finance')).state }
 export async function createScenario(role: Role, templateId: string): Promise<CashflowScenario> { return (await request<{ scenario: CashflowScenario }>(role, '/api/finance/cashflow-scenarios', { method: 'POST', body: JSON.stringify({ templateId }) })).scenario }
 export async function saveCards(role: Role, cards: Array<{ type: CardType }>): Promise<Array<{ type: CardType }>> { return (await request<{ cards: Array<{ type: CardType }> }>(role, '/api/finance/cards', { method: 'PUT', body: JSON.stringify({ cards }) })).cards }
+export async function saveMasaLayout(role: Role, layout: FinanceState['workspace']['masaLayout']): Promise<FinanceState['workspace']['masaLayout']> { return (await request<{ layout: FinanceState['workspace']['masaLayout'] }>(role, '/api/finance/masa-layout', { method: 'PUT', body: JSON.stringify({ layout }) })).layout }
 export async function uploadEvidence(role: Role, taskId: string, payload: { type: ProofType; file: { name: string; mimeType: string; base64: string; sha256: string }; gps?: string }): Promise<{ task: Task; evidence: Evidence }> { return request(role, `/api/finance/tasks/${encodeURIComponent(taskId)}/evidence`, { method: 'POST', body: JSON.stringify(payload) }) }
 export async function submitTask(role: Role, taskId: string, gps?: string): Promise<Task> { return (await request<{ task: Task }>(role, `/api/finance/tasks/${encodeURIComponent(taskId)}/submit`, { method: 'POST', body: JSON.stringify(gps ? { gps } : {}) })).task }
 export async function reviewTask(role: Role, taskId: string, decision: 'APPROVE' | 'REJECT', reason?: string, gps?: string): Promise<Task> {

@@ -32,6 +32,17 @@ const scenarioTemplates = {
 }
 const proofTypes = new Set(['PDF', 'FOTOĞRAF', 'GPS', 'DİJİTAL_İMZA', 'BARKOD'])
 const taskStatuses = new Set(['LOCKED', 'READY', 'PENDING_REVIEW', 'REJECTED', 'APPROVED'])
+const STORE_KEY = 'sectrai:finans:store'
+const EVIDENCE_KEY_PREFIX = 'sectrai:finans:evidence:'
+
+function defaultMasaLayout() {
+  return [
+    { id: 'workflow', x: 30, y: 28, w: 350, h: 240, z: 1, pinned: false, collapsed: false },
+    { id: 'ledger', x: 405, y: 28, w: 350, h: 240, z: 2, pinned: false, collapsed: false },
+    { id: 'roles', x: 30, y: 298, w: 350, h: 240, z: 3, pinned: false, collapsed: false },
+    { id: 'audit', x: 405, y: 298, w: 350, h: 240, z: 4, pinned: false, collapsed: false },
+  ]
+}
 
 const actors = {
   L1_ADMIN: { id: 'usr-admin-001', name: 'Sentetik Yönetici Ortak', role: 'Yönetici Ortak', department: 'Yönetim', level: 'L1' },
@@ -94,6 +105,7 @@ export const financeSeed = Object.freeze({
     sectorLabel: 'Profesyonel Hizmetler · Muhasebe ve Danışmanlık',
     containerTerm: 'Müvekkil / Danışmanlık Proje Dosyası',
     container: { id: 'eng-2026-001', title: 'Atlas Ltd. · Temmuz mutabakatı', client: 'Atlas Ltd.', status: 'ACTIVE' },
+    masaLayout: defaultMasaLayout(),
   },
   cards: [
     { type: 'workflow' },
@@ -197,10 +209,24 @@ function validateLegacyCase(item, module) {
   if (!Array.isArray(item.evidenceIds) || item.evidenceIds.length < 1 || !Array.isArray(item.evidence) || item.evidence.length < 1) throw new Error('EVIDENCE_CHAIN_REQUIRED')
   if (item.status !== 'PENDING_REVIEW' && !decisions[module].has(item.status)) throw new Error('INVALID_CASE_STATUS')
 }
+function validateMasaLayout(layout) {
+  if (!Array.isArray(layout) || layout.length !== cardTypes.size) throw new Error('INVALID_MASA_LAYOUT')
+  const seen = new Set()
+  for (const item of layout) {
+    if (!isObject(item) || !cardTypes.has(item.id) || seen.has(item.id)) throw new Error('INVALID_MASA_LAYOUT')
+    seen.add(item.id)
+    for (const key of ['x', 'y', 'w', 'h', 'z']) if (!Number.isSafeInteger(item[key])) throw new Error('INVALID_MASA_LAYOUT')
+    if (item.x < 0 || item.y < 0 || item.x > 1600 || item.y > 1200 || item.w < 270 || item.w > 620 || item.h < 130 || item.h > 470 || item.z < 1 || item.z > 1000) throw new Error('INVALID_MASA_LAYOUT')
+    if (typeof item.pinned !== 'boolean' || typeof item.collapsed !== 'boolean') throw new Error('INVALID_MASA_LAYOUT')
+  }
+  return layout.map((item) => ({ ...item }))
+}
 
 export function validateFinance(state) {
   if (!isObject(state) || state.synthetic !== true || !isObject(state.workspace) || !Array.isArray(state.cards) || !Array.isArray(state.team) || !Array.isArray(state.tasks) || !Array.isArray(state.auditTrail) || !Array.isArray(state.cashflowScenarios)) throw new Error('INVALID_FINANCE_STATE')
   if (state.workspace.sector !== 'PROFESSIONAL_SERVICES' || state.workspace.containerTerm !== 'Müvekkil / Danışmanlık Proje Dosyası' || !isObject(state.workspace.container)) throw new Error('INVALID_WORKSPACE')
+  if (!Array.isArray(state.workspace.masaLayout)) state.workspace.masaLayout = defaultMasaLayout()
+  state.workspace.masaLayout = validateMasaLayout(state.workspace.masaLayout)
   if (state.cards.length < 1 || state.cards.some((card) => !isObject(card) || !cardTypes.has(card.type)) || new Set(state.cards.map((card) => card.type)).size !== state.cards.length) throw new Error('INVALID_CARDS')
   if (state.team.length !== 4 || state.team.some((member) => !isObject(member) || typeof member.id !== 'string')) throw new Error('INVALID_TEAM')
   state.tasks.forEach(validateTask)
@@ -245,30 +271,120 @@ function validateRiskBriefing(result, taskId) {
   return result
 }
 
+function persistenceError(action, cause) {
+  const detail = cause instanceof Error && cause.message ? ` (${cause.message})` : ''
+  const error = new Error(`Upstash KV ${action} başarısız; yerel depoya fallback yapılmadı${detail}`)
+  error.status = 503
+  return error
+}
+
+function createFilePersistence(filePath) {
+  async function atomicWrite(state) {
+    await mkdir(dirname(filePath), { recursive: true })
+    const temporary = `${filePath}.${process.pid}.${randomUUID()}.tmp`
+    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+    await rename(temporary, filePath)
+  }
+
+  return {
+    kind: 'json-file',
+    async readState() {
+      try { return JSON.parse(await readFile(filePath, 'utf8')) }
+      catch (error) {
+        if (error?.code === 'ENOENT') return null
+        const failure = new Error('Kalıcı veri dosyası okunamıyor; dosya korunarak müdahale bekleniyor')
+        failure.status = 503
+        throw failure
+      }
+    },
+    writeState: atomicWrite,
+    async writeEvidence({ taskId, safeFileName, evidenceId, bytes }) {
+      const storageKey = `${taskId}/${evidenceId}-${safeFileName}`
+      const target = join(dirname(filePath), 'proofs', storageKey)
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, bytes, { flag: 'wx' })
+      return storageKey
+    },
+  }
+}
+
+function createUpstashPersistence({ url, token, fetchImpl }) {
+  const baseUrl = url.replace(/\/+$/, '')
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain; charset=utf-8' }
+
+  async function request(command, key, body) {
+    let response
+    try {
+      response = await fetchImpl(`${baseUrl}/${command}/${encodeURIComponent(key)}`, {
+        method: command === 'get' ? 'GET' : 'POST', headers, ...(body === undefined ? {} : { body }),
+      })
+    } catch (error) { throw persistenceError('erişimi', error) }
+    if (!response.ok) throw persistenceError('erişimi', new Error(`HTTP ${response.status}`))
+    let payload
+    try { payload = await response.json() } catch (error) { throw persistenceError('yanıtı', error) }
+    if (payload?.error) throw persistenceError('yanıtı', new Error(String(payload.error)))
+    return payload?.result
+  }
+
+  return {
+    kind: 'upstash-kv',
+    async readState() {
+      const serialized = await request('get', STORE_KEY)
+      if (serialized == null) return null
+      if (typeof serialized !== 'string') throw persistenceError('verisi', new Error('State değeri metin değil'))
+      try { return JSON.parse(serialized) } catch (error) { throw persistenceError('verisi', error) }
+    },
+    async writeState(state) { await request('set', STORE_KEY, JSON.stringify(state)) },
+    async writeEvidence({ evidenceId, bytes }) {
+      const storageKey = `${EVIDENCE_KEY_PREFIX}${evidenceId}`
+      await request('set', storageKey, bytes.toString('base64'))
+      return storageKey
+    },
+  }
+}
+
+function unavailablePersistence(message) {
+  const error = new Error(message)
+  error.status = 503
+  return { kind: 'upstash-misconfigured', async readState() { throw error }, async writeState() { throw error }, async writeEvidence() { throw error } }
+}
+
+function createPersistence(filePath, env, fetchImpl) {
+  const url = typeof env?.KV_REST_API_URL === 'string' ? env.KV_REST_API_URL.trim() : ''
+  const token = typeof env?.KV_REST_API_TOKEN === 'string' ? env.KV_REST_API_TOKEN.trim() : ''
+  const deployedOnVercel = env?.VERCEL === '1'
+  if (url || token) {
+    if (!url || !token) {
+      return unavailablePersistence('Upstash KV için KV_REST_API_URL ve KV_REST_API_TOKEN birlikte zorunludur; yerel depoya fallback yapılmadı')
+    }
+    if (typeof fetchImpl !== 'function') {
+      return unavailablePersistence('Upstash KV için fetch kullanılabilir olmalıdır; yerel depoya fallback yapılmadı')
+    }
+    return createUpstashPersistence({ url, token, fetchImpl })
+  }
+  if (deployedOnVercel) return unavailablePersistence('Vercel üretiminde KV_REST_API_URL ve KV_REST_API_TOKEN zorunludur; yerel depoya fallback yapılmadı')
+  return createFilePersistence(filePath)
+}
+
 export class FinanceStore {
-  constructor(dataFile, initial = financeSeed, aiProvider = createFinanceAIProvider()) {
+  constructor(dataFile, initial = financeSeed, aiProvider = createFinanceAIProvider(), { env = process.env, fetchImpl = globalThis.fetch } = {}) {
     this.dataFile = dataFile
-    this.proofDirectory = join(dirname(dataFile), 'proofs')
     this.initial = clone(initial)
     this.aiProvider = aiProvider
+    this.persistence = createPersistence(dataFile, env, fetchImpl)
     this.writeQueue = Promise.resolve()
   }
 
   async read() {
-    try { return validateFinance(JSON.parse(await readFile(this.dataFile, 'utf8'))) }
-    catch (error) {
-      if (error?.code !== 'ENOENT') throw error
+    const state = await this.persistence.readState()
+    if (state == null) {
       const initial = validateFinance(clone(this.initial))
       await this.write(initial)
       return initial
     }
+    return validateFinance(state)
   }
-  async write(state) {
-    await mkdir(dirname(this.dataFile), { recursive: true })
-    const temporary = `${this.dataFile}.${process.pid}.${randomUUID()}.tmp`
-    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
-    await rename(temporary, this.dataFile)
-  }
+  async write(state) { await this.persistence.writeState(state) }
   async mutate(operation) {
     const next = this.writeQueue.then(operation, operation)
     this.writeQueue = next.catch(() => undefined)
@@ -308,6 +424,19 @@ export class FinanceStore {
     })
   }
 
+  async saveMasaLayout(role, input, context) {
+    if (assertRole(role) !== 'L1_ADMIN') throw new Error('RBAC_DENIED')
+    assertAllowed(input, new Set(['layout']))
+    const layout = validateMasaLayout(input.layout)
+    return this.mutate(async () => {
+      const state = await this.read()
+      state.workspace.masaLayout = layout
+      audit(state, { action: 'MASA_LAYOUT_SAVED', actor: actorFor(role), context, detail: 'Masa kart konumları ve boyutları kalıcı kayda alındı.' })
+      await this.write(state)
+      return state.workspace.masaLayout
+    })
+  }
+
   async uploadEvidence(role, taskId, input, context) {
     const normalizedRole = assertRole(role)
     if (normalizedRole !== 'L3_WORKER' && normalizedRole !== 'L4_FIELD') throw new Error('RBAC_DENIED')
@@ -328,13 +457,9 @@ export class FinanceStore {
       if (hash !== assertText(input.file.sha256, 'INVALID_PROOF_HASH', 64)) throw new Error('PROOF_HASH_MISMATCH')
       const fileName = safeFileName(input.file.name)
       const mimeType = assertText(input.file.mimeType, 'INVALID_PROOF_MIME', 120)
-      const storageKey = `${task.id}/${randomUUID()}-${fileName}`
-      const target = join(this.proofDirectory, storageKey)
-      await mkdir(dirname(target), { recursive: true })
-      const temporary = `${target}.tmp`
-      await writeFile(temporary, bytes)
-      await rename(temporary, target)
-      const evidence = { id: `proof-${randomUUID()}`, type: input.type, fileName, mimeType, size: bytes.length, sha256: hash, storageKey, uploadedAt: now() }
+      const evidenceId = `proof-${randomUUID()}`
+      const storageKey = await this.persistence.writeEvidence({ evidenceId, taskId, safeFileName: fileName, bytes })
+      const evidence = { id: evidenceId, type: input.type, fileName, mimeType, size: bytes.length, sha256: hash, storageKey, uploadedAt: now() }
       task.evidence.push(evidence)
       audit(state, { action: 'PROOF_UPLOADED', actor, taskId, context: meta, detail: `${input.type} kanıtı SHA-256 ile kayda alındı: ${fileName}` })
       await this.write(state)

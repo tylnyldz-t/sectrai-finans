@@ -11,13 +11,13 @@ npm run api
 npm run dev
 ```
 
-Yerel API ilk istekte `data/finance.json` ile aynı dizinde `proofs/` klasörünü oluşturur. JSON atomik yazılır; kanıt dosyası yerelde saklanır ve SHA-256 özeti audit olayına eklenir. Bu dosyalar Git’e dahil değildir.
+Yerelde KV değişkenleri yokken API ilk istekte `data/finance.json` ile aynı dizinde `proofs/` klasörünü oluşturur. JSON atomik yazılır; kanıt dosyası yerelde saklanır ve SHA-256 özeti audit olayına eklenir. Bu dosyalar Git’e dahil değildir.
 
 ## Uygulanan masa modeli
 
 - Dinamik ana konteyner: **Müvekkil / Danışmanlık Proje Dosyası**.
-- Düzenli nav: Masa → Görevler & Onaylar → Kayıt Defterleri → Ekip & RBAC → Denetim İzi → (yalnız L1) Kart Düzeni.
-- L1 masa kartlarını gerçek [Puck](https://puckeditor.com/) editörüyle ekler, siler ve sıralar. Sunucu yalnız `workflow`, `ledger`, `roles`, `audit` presetlerini kabul eder; serbest kod/CSS/props ve yinelenen kart reddedilir.
+- Kanonik kabuk: solda ÇALIŞMA (Masa / Bugün / AI Operatör) ve MODÜLLER, ortada AI Operatör, sağda KONUŞ / UYGULA, Yönetici düzenleme, MASA, karşılama ve stat şeridi.
+- Masa tuvali dört sektör modülünü sürükle/boyutlandır, kilitle ve daralt kontrolleriyle gösterir. L1 yerleşimi `PUT /api/finance/masa-layout` üzerinden kalıcı kayda alınır; yerelde JSON, üretimde Upstash KV kullanılır.
 - Sektör hiyerarşisi: L1 Yönetici Ortak, L2 Proje/Hesap Müdürü (Checker), L3 Mali Müşavir/Danışman (Worker), L4 Dokümantasyon Desteği (Field).
 
 ## Worker–Checker sözleşmesi
@@ -38,7 +38,7 @@ L1/L2 “AI ön-denetimini hazırla” ile yalnız sentetik, kural-temelli risk 
 
 Yerel API, `x-sectrai-role` başlığında yalnız `L1_ADMIN`, `L2_CHECKER`, `L3_WORKER` veya `L4_FIELD` değerlerini kabul eder. Bu, demo RBAC sözleşmesidir; üretim kimliği yerine geçmez. Vercel middleware’i `ADMIN_GATE_EMAIL`, `ADMIN_GATE_PASSWORD` ve `ADMIN_GATE_SECRET` yoksa tüm yüzeyi 503 ile kapatır.
 
-Vercel function `/tmp` kullanır; instance değiştiğinde kanıtlar ve JSON kaydı kaybolabilir. Bu nedenle canlı yüzeyde dayanıklı kalıcılık iddia edilmez.
+Vercel catch-all function'ı `/api/[...all]` üzerinden çalışır; `/api/health` seçili persistence türünü, seed edilen dört RBAC aktörünü ve modül sayısını döndürür. Üretimde `KV_REST_API_URL` ile `KV_REST_API_TOKEN` birlikte zorunludur: biri eksikse veya Upstash erişilemezse API 503 ile fail-closed kalır ve dosya fallback'i yapmaz. Upstash anahtarları `sectrai:finans:store` ve `sectrai:finans:evidence:*` ad alanındadır.
 
 ## Doğrulama
 

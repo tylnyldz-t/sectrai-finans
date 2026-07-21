@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/finance/:financePath*", "destination": "/api/finance-handler?__finance_path=:financePath*" }
+    { "source": "/api/:path*", "destination": "/api/[...all]" }
   ]
 }

@@ -4,7 +4,8 @@
 // başına eklemez (maker-checker). Eşleşmeyen istekler için Modül Studio'ya yönlendirir.
 
 import { useState, type FormEvent } from 'react';
-import { Mic, Paperclip, PanelLeftClose, Send, Sparkles, LayoutGrid } from 'lucide-react';
+import { Database, Mic, Paperclip, PanelLeftClose, Send, Sparkles, LayoutGrid } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 interface Proposal { ids: string[]; labels: string[]; unmatched: string[] }
 interface Msg { role: 'user' | 'ai'; text: string; proposal?: Proposal; done?: boolean }
@@ -53,14 +54,14 @@ export function AiOperator({
   const dismiss = (index: number) => setMessages((m) => m.map((msg, i) => i === index ? { ...msg, done: true } : msg));
 
   return (
-    <aside className="masa-op" aria-label="AI Operatör">
+    <aside className="masa-op" aria-label={t("AI Operatör")}>
       <div className="masa-op-head">
         <span className="masa-op-ic" aria-hidden="true"><Sparkles size={15} /></span>
         <div className="masa-op-titles">
-          <div className="masa-op-title">SECTRAI AI Operatör</div>
-          <div className="masa-op-sub">Konuş, o yapsın — sen onayla</div>
+          <div className="masa-op-title">{t("SECTRAI AI Operatör")}</div>
+          <div className="masa-op-sub">{t("Konuş, o yapsın — sen onayla")}</div>
         </div>
-        <button className="masa-ic" title="Paneli kapat" aria-label="AI panelini kapat" onClick={onCollapse}>
+        <button className="masa-ic" title={t("Paneli kapat")} aria-label={t("AI panelini kapat")} onClick={onCollapse}>
           <PanelLeftClose size={15} aria-hidden="true" />
         </button>
       </div>
@@ -68,37 +69,47 @@ export function AiOperator({
       <div className="masa-op-ctx"><span className="masa-op-chip">{workspaceTitle}</span></div>
 
       <div className="masa-op-body">
+        <section className="masa-op-external-proposal" aria-labelledby="masa-op-external-title">
+          <div className="masa-op-external-head">
+            <span className="masa-op-external-icon" aria-hidden="true"><Database size={14} /></span>
+            <strong id="masa-op-external-title">{t("Dış veri toplama")}</strong>
+            <span className="masa-op-external-status">{t("ONAY BEKLİYOR")}</span>
+          </div>
+          <p>{t("Kamuya açık listelerden veri derleme önerisi")}</p>
+          <small>{t("Çıktı, ilgili modülün kayıt listesine öneri olarak düşer; sen onaylamadan çalışma başlamaz.")}</small>
+        </section>
+
         {messages.length === 0 ? (
           <div className="masa-op-intro">
-            <p className="masa-op-intro-t">Ne yapmak istersin? Masa'da görmek istediklerini yaz — kartlarla döşeyeyim:</p>
+            <p className="masa-op-intro-t">{t("Ne yapmak istersin? Masa'da görmek istediklerini yaz — kartlarla döşeyeyim:")}</p>
             <div className="masa-op-examples">
               {examples.map((ex) => (
-                <button key={ex} type="button" className="masa-op-ex" onClick={() => send(ex)}>{ex}</button>
+                <button key={ex} type="button" className="masa-op-ex" onClick={() => send(ex)}>{t(ex)}</button>
               ))}
             </div>
-            <p className="masa-op-note">Önce öneririm, sen onaylayınca Masa'na eklenir — AI kendi başına eklemez.</p>
+            <p className="masa-op-note">{t("Önce öneririm, sen onaylayınca Masa'na eklenir — AI kendi başına eklemez.")}</p>
           </div>
         ) : (
           <div className="masa-op-thread">
             {messages.map((m, i) => (
               <div key={i} className={`masa-op-bubble ${m.role}`}>
-                <div>{m.text}</div>
+                <div>{m.role === 'ai' ? t(m.text) : m.text}</div>
                 {m.proposal && !m.done && (
                   <div className="masa-op-proposal">
-                    <div className="masa-op-proposal-t"><LayoutGrid size={13} aria-hidden="true" /> Masa'na eklenecek kartlar</div>
+                    <div className="masa-op-proposal-t"><LayoutGrid size={13} aria-hidden="true" /> {t("Masa'na eklenecek kartlar")}</div>
                     <div className="masa-op-proposal-chips">
-                      {m.proposal.labels.map((l) => <span key={l} className="masa-op-chip sm">{l}</span>)}
+                      {m.proposal.labels.map((l) => <span key={l} className="masa-op-chip sm">{t(l)}</span>)}
                     </div>
                     {m.proposal.unmatched.length > 0 && (
-                      <p className="masa-op-proposal-note">Eşleşmeyen: {m.proposal.unmatched.join(', ')} — Modül Studio ile yeni modül oluşturabilirsin.</p>
+                      <p className="masa-op-proposal-note">{t("Eşleşmeyen:")} {m.proposal.unmatched.join(', ')} {t("— Modül Studio ile yeni modül oluşturabilirsin.")}</p>
                     )}
                     <div className="masa-op-proposal-actions">
-                      <button type="button" className="masa-op-accept" disabled={m.proposal.ids.length === 0} onClick={() => accept(i, m.proposal!)}>Kartları ekle</button>
-                      <button type="button" className="masa-op-dismiss" onClick={() => dismiss(i)}>Vazgeç</button>
+                      <button type="button" className="masa-op-accept" disabled={m.proposal.ids.length === 0} onClick={() => accept(i, m.proposal!)}>{t("Kartları ekle")}</button>
+                      <button type="button" className="masa-op-dismiss" onClick={() => dismiss(i)}>{t("Vazgeç")}</button>
                     </div>
                   </div>
                 )}
-                {m.done && <small className="masa-op-done">✓ uygulandı</small>}
+                {m.done && <small className="masa-op-done">{t("✓ uygulandı")}</small>}
               </div>
             ))}
           </div>
@@ -107,21 +118,21 @@ export function AiOperator({
 
       <div className="masa-op-foot">
         <div className="masa-op-modes">
-          <button type="button" className={`masa-mode${realMode ? ' on' : ''}`} onClick={() => setRealMode((v) => !v)} title="Gerçek-mod: kapalıyken gölge (yazma yok)">
-            {realMode ? 'Gerçek-mod' : 'Gölge mod'}
+          <button type="button" className={`masa-mode${realMode ? ' on' : ''}`} onClick={() => setRealMode((v) => !v)} title={t("Gerçek-mod: kapalıyken gölge (yazma yok)")}>
+            {t(realMode ? 'Gerçek-mod' : 'Gölge mod')}
           </button>
-          <button type="button" className={`masa-mode${voice ? ' on' : ''}`} onClick={() => setVoice((v) => !v)} title="Sesli giriş (önizleme)">
-            {voice ? 'Ses açık' : 'Ses kapalı'}
+          <button type="button" className={`masa-mode${voice ? ' on' : ''}`} onClick={() => setVoice((v) => !v)} title={t("Sesli giriş (önizleme)")}>
+            {t(voice ? 'Ses açık' : 'Ses kapalı')}
           </button>
-          <button type="button" className={`masa-mode${autonomy ? ' on' : ''}`} onClick={() => setAutonomy((v) => !v)} title="Otonom mod: kapalıyken her adım onay ister">
-            {autonomy ? 'Otonom açık' : 'Otonom kapalı'}
+          <button type="button" className={`masa-mode${autonomy ? ' on' : ''}`} onClick={() => setAutonomy((v) => !v)} title={t("Otonom mod: kapalıyken her adım onay ister")}>
+            {t(autonomy ? 'Otonom açık' : 'Otonom kapalı')}
           </button>
         </div>
         <form className="masa-op-input" onSubmit={submit}>
-          <button type="button" className="masa-ic" title="Ek (önizleme)" aria-label="Ek ekle"><Paperclip size={15} aria-hidden="true" /></button>
-          <button type="button" className="masa-ic" title="Sesle yaz (önizleme)" aria-label="Sesle yaz"><Mic size={15} aria-hidden="true" /></button>
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Masa'da ne görmek istersin?…" aria-label="AI operatöre komut" />
-          <button type="submit" className="masa-ic send" title="Gönder" aria-label="Gönder" disabled={!input.trim()}><Send size={15} aria-hidden="true" /></button>
+          <button type="button" className="masa-ic" title={t("Ek (önizleme)")} aria-label={t("Ek ekle")}><Paperclip size={15} aria-hidden="true" /></button>
+          <button type="button" className="masa-ic" title={t("Sesle yaz (önizleme)")} aria-label={t('Sesle yaz')}><Mic size={15} aria-hidden="true" /></button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("Masa'da ne görmek istersin?…")} aria-label={t("AI operatöre komut")} />
+          <button type="submit" className="masa-ic send" title={t("Gönder")} aria-label={t("Gönder")} disabled={!input.trim()}><Send size={15} aria-hidden="true" /></button>
         </form>
       </div>
     </aside>

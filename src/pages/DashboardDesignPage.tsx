@@ -1,85 +1,69 @@
-import { useState } from 'react';
-import { ArrowLeft, Check, LockKeyhole, Palette, Save } from 'lucide-react';
-import { Puck, type Config, type Data } from '@puckeditor/core';
-import '@puckeditor/core/puck.css';
+import { useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  LockKeyhole,
+  Monitor,
+  Palette,
+  Redo2,
+  Save,
+  Smartphone,
+  Tablet,
+  Undo2,
+} from 'lucide-react';
+import type { MasaLayout } from '@shared/masa.ts';
+import { normalizeMasaLayout } from '@shared/masa.ts';
+import { moduleSchemaFor } from '@shared/module-schemas.ts';
 import type { Workspace } from '@shared/types.ts';
 import {
-  DEFAULT_DASHBOARD_DESIGN,
+  DASHBOARD_FONTS,
+  DASHBOARD_PALETTES,
+  DASHBOARD_RADII,
+  DASHBOARD_SPACING,
   normalizeDashboardDesign,
-  type DashboardDesign,
+  type DashboardFont,
+  type DashboardPalette,
+  type DashboardRadius,
+  type DashboardSpacing,
   type DashboardTheme,
   type DashboardWidgetId,
 } from '@shared/dashboard-design.ts';
 import { api } from '@/lib/api';
 import { dashboardThemeVars } from '@/lib/dashboard-theme';
+import { dashboardDesignFromStoredData } from './editor/dashboard-editor-model';
+import { FlatLayoutEditor, type FlatEditorItem } from './editor/FlatLayoutEditor';
+import { ModulePalette } from './editor/ModulePalette';
+import { SchemaFieldPanel } from './editor/SchemaFieldPanel';
+import {
+  editorLayoutFromOrder,
+  editorOrderFromLayout,
+  registryPaletteForWorkspace,
+  schemaValuesOnly,
+} from './editor/editor-model';
+import './editor/editor.css';
+import { t } from '@/lib/i18n';
 
-type PuckWidgetType = 'Summary' | 'Modules' | 'Schema' | 'Domain' | 'Safety';
-type PuckComponents = Record<PuckWidgetType, Record<string, never>>;
-
-const WIDGETS: Array<{ id: DashboardWidgetId; type: PuckWidgetType; title: string; detail: string }> = [
-  { id: 'summary', type: 'Summary', title: 'Özet kartları', detail: 'Modül, alan türü, kurulum ve veri modu' },
-  { id: 'modules', type: 'Modules', title: 'Modüller', detail: 'Çalışma alanındaki hazır paneller' },
-  { id: 'schema', type: 'Schema', title: 'Özel şema', detail: 'Varsa oluşturulan özel modül şeması' },
-  { id: 'domain', type: 'Domain', title: 'Alan adı', detail: 'Kendi alan adını bağlama alanı' },
-  { id: 'safety', type: 'Safety', title: 'Güvenlik beyanı', detail: 'Sentetik ve sahiplik sınırları' },
+const WIDGETS: readonly FlatEditorItem[] = [
+  { id: 'summary', label: 'Özet kartları', detail: 'Modül, alan türü, kurulum ve veri modu' },
+  { id: 'modules', label: 'Modüller', detail: 'Çalışma alanındaki hazır paneller' },
+  { id: 'schema', label: 'Özel şema', detail: 'Varsa oluşturulan özel modül şeması' },
+  { id: 'domain', label: 'Alan adı', detail: 'Kendi alan adını bağlama alanı' },
+  { id: 'safety', label: 'Güvenlik beyanı', detail: 'Sentetik ve sahiplik sınırları' },
 ];
 
-const idForType = (type: unknown): DashboardWidgetId | null =>
-  WIDGETS.find((widget) => widget.type === type)?.id ?? null;
+const THEME_FIELDS = [
+  { key: 'palette', label: 'Renk paleti', values: DASHBOARD_PALETTES, labels: ['Mor / Sectrai', 'Okyanus', 'Orman'] },
+  { key: 'font', label: 'Yazı karakteri', values: DASHBOARD_FONTS, labels: ['Sectrai Display', 'Humanist', 'Sistem'] },
+  { key: 'radius', label: 'Köşe yuvarlaklığı', values: DASHBOARD_RADII, labels: ['Yumuşak', 'Yuvarlak', 'Keskin'] },
+  { key: 'spacing', label: 'Bölüm aralığı', values: DASHBOARD_SPACING, labels: ['Sıkı', 'Dengeli', 'Havadar'] },
+] as const;
 
-function previewBlock(title: string, detail: string) {
-  return function PreviewBlock() {
-    return (
-      <section className="design-widget-preview">
-        <span className="design-widget-handle" aria-hidden="true">⠿</span>
-        <div><strong>{title}</strong><small>{detail}</small></div>
-        <span className="design-widget-preset">SABİT PRESET</span>
-      </section>
-    );
-  };
-}
+type EditorSnapshot = { theme: DashboardTheme; layout: MasaLayout };
+type EditorHistory = { past: EditorSnapshot[]; present: EditorSnapshot; future: EditorSnapshot[] };
 
-const puckConfig: Config<PuckComponents, DashboardTheme> = {
-  root: {
-    fields: {
-      palette: { type: 'select', label: 'Renk paleti', options: [
-        { label: 'Mor / Sectrai', value: 'violet' }, { label: 'Okyanus', value: 'ocean' }, { label: 'Orman', value: 'forest' },
-      ] },
-      font: { type: 'select', label: 'Yazı karakteri', options: [
-        { label: 'Sectrai Display', value: 'display' }, { label: 'Humanist', value: 'humanist' }, { label: 'Sistem', value: 'system' },
-      ] },
-      radius: { type: 'select', label: 'Köşe yuvarlaklığı', options: [
-        { label: 'Yumuşak', value: 'soft' }, { label: 'Yuvarlak', value: 'round' }, { label: 'Keskin', value: 'square' },
-      ] },
-      spacing: { type: 'select', label: 'Bölüm aralığı', options: [
-        { label: 'Sıkı', value: 'compact' }, { label: 'Dengeli', value: 'balanced' }, { label: 'Havadar', value: 'airy' },
-      ] },
-    },
-    defaultProps: DEFAULT_DASHBOARD_DESIGN.theme,
-    render: ({ children, ...theme }) => <div className="design-puck-canvas" style={dashboardThemeVars(normalizeDashboardDesign({ theme }).theme)}>{children}</div>,
-  },
-  components: {
-    Summary: { label: 'Özet kartları', render: previewBlock('Özet kartları', 'Modül, alan türü, kurulum ve veri modu') },
-    Modules: { label: 'Modüller', render: previewBlock('Modüller', 'Çalışma alanındaki hazır paneller') },
-    Schema: { label: 'Özel şema', render: previewBlock('Özel şema', 'Varsa oluşturulan özel modül şeması') },
-    Domain: { label: 'Alan adı', render: previewBlock('Alan adı', 'Kendi alan adını bağlama alanı') },
-    Safety: { label: 'Güvenlik beyanı', render: previewBlock('Güvenlik beyanı', 'Sentetik ve sahiplik sınırları') },
-  },
-};
-
-function puckDataFromDesign(design: DashboardDesign): Data {
-  return {
-    root: { props: design.theme },
-    content: design.layout.map((id) => ({ type: WIDGETS.find((widget) => widget.id === id)!.type, props: {} })),
-  } as unknown as Data;
-}
-
-function designFromPuck(data: Data): DashboardDesign {
-  const root = data.root && 'props' in data.root ? data.root.props : {};
-  const layout = Array.isArray(data.content)
-    ? data.content.map((item) => idForType(item.type)).filter((id): id is DashboardWidgetId => id !== null)
-    : [];
-  return normalizeDashboardDesign({ theme: root, layout });
+function snapshotFromStoredData(input: unknown): { stored: ReturnType<typeof dashboardDesignFromStoredData>; snapshot: EditorSnapshot } {
+  const stored = dashboardDesignFromStoredData(input);
+  return { stored, snapshot: { theme: stored.design.theme, layout: editorLayoutFromOrder(stored.design.layout, WIDGETS) } };
 }
 
 export function DashboardDesignPage({ workspace, onBack, onSaved }: {
@@ -87,18 +71,66 @@ export function DashboardDesignPage({ workspace, onBack, onSaved }: {
   onBack: () => void;
   onSaved: (workspace: Workspace) => void;
 }) {
-  const design = normalizeDashboardDesign(workspace.dashboardDesign);
+  const initial = useMemo(() => snapshotFromStoredData(workspace.dashboardDesign), [workspace.dashboardDesign]);
+  const [history, setHistory] = useState<EditorHistory>(() => ({ past: [], present: initial.snapshot, future: [] }));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [viewport, setViewport] = useState<360 | 768 | 1280>(1280);
+  const paletteModules = useMemo(() => registryPaletteForWorkspace(workspace), [workspace]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(() => paletteModules[0]?.id ?? null);
+  const [fieldValues, setFieldValues] = useState<Record<string, Record<string, unknown>>>({});
+  const selectedModule = paletteModules.find((module) => module.id === selectedModuleId) ?? null;
 
-  const save = async (data: Data) => {
+  const commit = (next: EditorSnapshot) => {
+    setHistory((current) => ({ past: [...current.past.slice(-49), current.present], present: next, future: [] }));
+    setStatus('idle');
+    setMessage('');
+  };
+  const undo = () => {
+    setHistory((current) => {
+      const previous = current.past.at(-1);
+      return previous ? { past: current.past.slice(0, -1), present: previous, future: [current.present, ...current.future] } : current;
+    });
+    setStatus('idle'); setMessage('');
+  };
+  const redo = () => {
+    setHistory((current) => {
+      const next = current.future[0];
+      return next ? { past: [...current.past, current.present].slice(-50), present: next, future: current.future.slice(1) } : current;
+    });
+    setStatus('idle'); setMessage('');
+  };
+
+  const setTheme = (key: keyof DashboardTheme, value: string) => {
+    const theme = {
+      ...history.present.theme,
+      [key]: value,
+    } as DashboardTheme;
+    commit({ ...history.present, theme: normalizeDashboardDesign({ theme }).theme });
+  };
+
+  const setSchemaValue = (fieldKey: string, value: unknown) => {
+    if (!selectedModule) return;
+    const schema = moduleSchemaFor(selectedModule.id, selectedModule.label);
+    setFieldValues((current) => ({
+      ...current,
+      [selectedModule.id]: schemaValuesOnly(schema, { ...(current[selectedModule.id] ?? {}), [fieldKey]: value }),
+    }));
+  };
+
+  const save = async () => {
+    if (initial.stored.blocked) return;
     setStatus('saving');
     setMessage('');
     try {
-      const result = await api.saveDashboardDesign(workspace.id, designFromPuck(data));
+      // Kalıcı sınıra kirli/elle üretilmiş bir layout ulaşamaz.
+      const cleanLayout = normalizeMasaLayout(history.present.layout, WIDGETS);
+      const layout = editorOrderFromLayout(cleanLayout) as DashboardWidgetId[];
+      const design = normalizeDashboardDesign({ theme: history.present.theme, layout });
+      const result = await api.saveDashboardDesign(workspace.id, design);
       onSaved(result.workspace);
       setStatus('saved');
-      setMessage('Tasarım yalnız bu çalışma alanına kaydedildi.');
+      setMessage('Tasarım yalnız bu çalışma alanına kaydedildi. Yayınlama veya harici aksiyon yapılmadı.');
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Tasarım kaydedilemedi');
@@ -106,30 +138,65 @@ export function DashboardDesignPage({ workspace, onBack, onSaved }: {
   };
 
   return (
-    <main className="design-page">
+    <main className="design-page schema-editor-page">
       <div className="design-page-intro">
-        <button className="btn design-back" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Panoya dön</button>
+        <button className="btn design-back" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> {t("Panoya dön")}</button>
         <div>
-          <p className="eyebrow"><LockKeyhole size={13} aria-hidden="true" /> YALNIZCA WORKSPACE SAHİBİ</p>
-          <h1><Palette size={24} aria-hidden="true" /> {workspace.title} tasarımı</h1>
-          <p>Renk, tipografi ve boşluk presetlerini seç; mevcut pano bloklarını sürükleyerek sırala.</p>
+          <p className="eyebrow"><LockKeyhole size={13} aria-hidden="true" /> {t("YALNIZCA WORKSPACE SAHİBİ")}</p>
+          <h1><Palette size={24} aria-hidden="true" /> {t('{workspace} tasarımı', { workspace: workspace.title })}</h1>
+          <p>{t("Flat blok sırasını ve güvenli presetleri düzenle. İç içe alan, serbest kod ve otomatik yayın yoktur.")}</p>
         </div>
-        <div className="design-rules"><strong>Kod serbestliği yok</strong><span>Yalnız kayıtlı dashboard preset’leri kullanılabilir.</span></div>
+        <div className="design-rules"><strong>{t("İnsan onayı gerekir")}</strong><span>{t("AI yalnız önerir; kayıt ancak “Tasarımı kaydet” ile başlar.")}</span></div>
       </div>
-      {message && <p className={`design-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>{status === 'saved' && <Check size={15} aria-hidden="true" />}{message}</p>}
-      <Puck
-        key={`${workspace.id}-${JSON.stringify(design)}`}
-        config={puckConfig}
-        data={puckDataFromDesign(design)}
-        headerTitle="Pano tasarımı"
-        permissions={{ insert: false, delete: false, duplicate: false, drag: true, edit: true }}
-        onPublish={(data) => { void save(data as Data); }}
-        renderHeaderActions={({ state }) => (
-          <button className="Puck__button Puck__button--primary" type="button" disabled={status === 'saving'} onClick={() => { void save(state.data as Data); }}>
-            <Save size={15} aria-hidden="true" /> {status === 'saving' ? 'Kaydediliyor…' : 'Tasarımı kaydet'}
-          </button>
-        )}
-      />
+
+      {initial.stored.note && <p className={`design-status ${initial.stored.blocked ? 'error' : 'saved'}`} role={initial.stored.blocked ? 'alert' : 'status'}>{t(initial.stored.note)}</p>}
+      {message && <p className={`design-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>{status === 'saved' && <Check size={15} aria-hidden="true" />}{t(message)}</p>}
+
+      <div className="schema-editor-toolbar" aria-label={t("Düzenleyici araçları")}>
+        <div>
+          <button type="button" className="btn" disabled={history.past.length === 0} onClick={undo}><Undo2 size={15} aria-hidden="true" /> {t("Geri al")}</button>
+          <button type="button" className="btn" disabled={history.future.length === 0} onClick={redo}><Redo2 size={15} aria-hidden="true" /> {t("İleri al")}</button>
+        </div>
+        <div className="schema-editor-viewports" aria-label={t("Önizleme genişliği")}>
+          <button type="button" className={viewport === 360 ? 'active' : ''} aria-pressed={viewport === 360} onClick={() => setViewport(360)}><Smartphone size={15} aria-hidden="true" /> 360</button>
+          <button type="button" className={viewport === 768 ? 'active' : ''} aria-pressed={viewport === 768} onClick={() => setViewport(768)}><Tablet size={15} aria-hidden="true" /> 768</button>
+          <button type="button" className={viewport === 1280 ? 'active' : ''} aria-pressed={viewport === 1280} onClick={() => setViewport(1280)}><Monitor size={15} aria-hidden="true" /> 1280</button>
+        </div>
+        <button className="btn btn-primary" type="button" disabled={status === 'saving' || initial.stored.blocked} onClick={() => void save()}>
+          <Save size={15} aria-hidden="true" /> {t(status === 'saving' ? 'Kaydediliyor…' : 'Tasarımı kaydet')}
+        </button>
+      </div>
+
+      <div className="schema-editor-shell">
+        <ModulePalette modules={paletteModules} selectedId={selectedModuleId} onSelect={setSelectedModuleId} />
+        <section className="schema-editor-workspace" aria-label={t("Pano düzeni")}>
+          <div className="schema-editor-presets">
+            {THEME_FIELDS.map((field) => (
+              <label key={field.key}>
+                <span>{t(field.label)}</span>
+                <select value={history.present.theme[field.key]} onChange={(event) => setTheme(field.key, event.target.value)}>
+                  {field.values.map((value, index) => <option key={value} value={value}>{t(field.labels[index])}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <div className="schema-editor-preview-stage">
+            <div className="design-flat-canvas" data-viewport={viewport} style={{ ...dashboardThemeVars(history.present.theme), width: viewport, maxWidth: '100%' }}>
+              <FlatLayoutEditor items={WIDGETS} layout={history.present.layout} onChange={(layout) => commit({ ...history.present, layout })} />
+            </div>
+          </div>
+        </section>
+        <SchemaFieldPanel
+          module={selectedModule}
+          values={selectedModule ? fieldValues[selectedModule.id] ?? {} : {}}
+          onChange={setSchemaValue}
+        />
+      </div>
     </main>
   );
 }
+
+// Bu dar preset yüzeyinde tema değerlerini tip güvenli tutan görünür alias'lar.
+export type DashboardEditorPreset = DashboardPalette | DashboardFont | DashboardRadius | DashboardSpacing;
+
+export default DashboardDesignPage;

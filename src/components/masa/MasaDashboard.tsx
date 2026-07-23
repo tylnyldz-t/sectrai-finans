@@ -22,6 +22,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { MasaModuleCard } from '@/components/masa/MasaModuleCard';
 import { AiOperator } from '@/components/masa/AiOperator';
 import { ModuleView } from '@/components/masa/ModuleView';
+import { t } from '@/lib/i18n';
 
 export function MasaDashboard({
   workspace, user, slug, basePath, moduleId, adaptiveModulesEnabled, onWorkspaceChange,
@@ -141,26 +142,26 @@ export function MasaDashboard({
 
   // ── Sol sidebar ─────────────────────────────────────────────────────────────
   const sidebar = (
-    <aside className="masa-side" aria-label="Çalışma alanı menüsü">
+    <aside className="masa-side" aria-label={t("Çalışma alanı menüsü")}>
       <div className="masa-brand">
         <span className="logo-orb" aria-hidden="true" />
         <div className="masa-brand-txt">
           <div className="masa-brand-name">{workspace.title}</div>
-          <div className="masa-brand-sub">{isBusiness ? 'İşletme' : 'Bireysel'} · {workspace.modules.length} modül</div>
+          <div className="masa-brand-sub">{t('{kind} · {n} modül', { kind: t(isBusiness ? 'İşletme' : 'Bireysel'), n: workspace.modules.length })}</div>
         </div>
-        <button className="masa-ic" title="Menüyü daralt" aria-label="Menüyü daralt" onClick={() => setNavOpen(false)}>
+        <button className="masa-ic" title={t("Menüyü daralt")} aria-label={t("Menüyü daralt")} onClick={() => setNavOpen(false)}>
           <PanelLeft size={15} aria-hidden="true" />
         </button>
       </div>
       <nav className="masa-nav">
-        <div className="masa-nav-group">Çalışma</div>
-        <button className={`masa-nav-item${!moduleId ? ' active' : ''}`} onClick={() => nav(masaHref)}><LayoutGrid size={15} aria-hidden="true" /> <span>Masa</span></button>
-        <button className="masa-nav-item" onClick={() => nav(masaHref)}><Home size={15} aria-hidden="true" /> <span>Bugün</span></button>
-        <button className="masa-nav-item ai" onClick={() => setOpOpen(true)}><Sparkles size={15} aria-hidden="true" /> <span>AI Operatör</span></button>
-        <div className="masa-nav-group">Modüller</div>
+        <div className="masa-nav-group">{t("Çalışma")}</div>
+        <button className={`masa-nav-item${!moduleId ? ' active' : ''}`} onClick={() => nav(masaHref)}><LayoutGrid size={15} aria-hidden="true" /> <span>{t("Masa")}</span></button>
+        <button className="masa-nav-item" onClick={() => nav(masaHref)}><Home size={15} aria-hidden="true" /> <span>{t("Bugün")}</span></button>
+        <button className="masa-nav-item ai" onClick={() => setOpOpen(true)}><Sparkles size={15} aria-hidden="true" /> <span>{t("AI Operatör")}</span></button>
+        <div className="masa-nav-group">{t("Modüller")}</div>
         {workspace.modules.map((m) => (
-          <button key={m.id} className={`masa-nav-item${moduleId === m.id ? ' active' : ''}`} title={`${m.label} — sayfasını aç`} onClick={() => nav(moduleHref(m.id))}>
-            <Boxes size={15} aria-hidden="true" /> <span>{m.label}</span>
+          <button key={m.id} className={`masa-nav-item${moduleId === m.id ? ' active' : ''}`} title={t('{label} — sayfasını aç', { label: t(m.label) })} onClick={() => nav(moduleHref(m.id))}>
+            <Boxes size={15} aria-hidden="true" /> <span>{t(m.label)}</span>
           </button>
         ))}
       </nav>
@@ -170,33 +171,33 @@ export function MasaDashboard({
   return (
     <div className="masa-shell" style={dashboardThemeVars(design.theme)}>
       {navOpen ? sidebar : (
-        <button className="masa-side-rail" title="Menüyü aç" aria-label="Menüyü aç" onClick={() => setNavOpen(true)}>
-          <PanelLeft size={17} aria-hidden="true" /><span className="rail-txt">MENÜ</span>
+        <button className="masa-side-rail" title={t("Menüyü aç")} aria-label={t("Menüyü aç")} onClick={() => setNavOpen(true)}>
+          <PanelLeft size={17} aria-hidden="true" /><span className="rail-txt">{t("MENÜ")}</span>
         </button>
       )}
 
       {opOpen ? (
         <AiOperator workspaceTitle={workspace.title} moduleLabels={moduleLabels} onCommand={handleOperatorCommand} onApplyCards={applyMasaCards} onCollapse={() => setOpOpen(false)} />
       ) : (
-        <button className="masa-op-rail" title="AI Operatör panelini aç" aria-label="AI Operatör panelini aç" onClick={() => setOpOpen(true)}>
-          <Sparkles size={17} aria-hidden="true" /><span className="rail-txt">AI OPERATÖR</span>
+        <button className="masa-op-rail" title={t("AI Operatör panelini aç")} aria-label={t("AI Operatör panelini aç")} onClick={() => setOpOpen(true)}>
+          <Sparkles size={17} aria-hidden="true" /><span className="rail-txt">{t("AI OPERATÖR")}</span>
         </button>
       )}
 
       <main className="masa-main">
         <AppHeader
-          active="work"
+          active="desk"
           user={user}
           currentSlug={workspace.slug ?? slug}
           rightExtra={isOwner ? (
             <span style={{ display: 'inline-flex', gap: 8 }}>
-              <button className="btn masa-design-btn" onClick={() => nav(designHref)}><Settings2 size={14} aria-hidden="true" /> Tasarım</button>
-              {adaptiveModulesEnabled && <button className="btn masa-design-btn" onClick={() => nav(studioHref)}><Boxes size={14} aria-hidden="true" /> Modül Studio</button>}
+              <button className="btn masa-design-btn" onClick={() => nav(designHref)}><Settings2 size={14} aria-hidden="true" /> {t("Tasarım")}</button>
+              {adaptiveModulesEnabled && <button className="btn masa-design-btn" onClick={() => nav(studioHref)}><Boxes size={14} aria-hidden="true" /> {t("Modül Studio")}</button>}
             </span>
           ) : user.platformRole === 'ADMIN' ? (
-            <span className="masa-slug-pill" title="Yönetici; Masa yerleşimini düzenleyebilir">Yönetici düzenleme</span>
+            <span className="masa-slug-pill" title={t("Yönetici; Masa yerleşimini düzenleyebilir")}>{t("Yönetici düzenleme")}</span>
           ) : (
-            <span className="masa-slug-pill" title="Salt görünüm">Salt görünüm</span>
+            <span className="masa-slug-pill" title={t("Salt görünüm")}>{t("Salt görünüm")}</span>
           )}
         />
 
@@ -208,52 +209,52 @@ export function MasaDashboard({
           {stepsOpen && isOwner && (
             <section className="masa-steps">
               <div className="masa-steps-head">
-                <span>Önerilen adımlar</span>
-                <button className="masa-ic" title="Kapat" aria-label="Önerilen adımları kapat" onClick={() => setStepsOpen(false)}><X size={14} aria-hidden="true" /></button>
+                <span>{t("Önerilen adımlar")}</span>
+                <button className="masa-ic" title={t("Kapat")} aria-label={t("Önerilen adımları kapat")} onClick={() => setStepsOpen(false)}><X size={14} aria-hidden="true" /></button>
               </div>
               <div className="masa-steps-grid">
                 <div className="masa-step-card">
-                  <div className="masa-step-t"><Globe size={15} aria-hidden="true" /> Kendi alan adını bağla</div>
+                  <div className="masa-step-t"><Globe size={15} aria-hidden="true" /> {t("Kendi alan adını bağla")}</div>
                   <form className="domain-form" onSubmit={(e) => void bindDomain(e)}>
-                    <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="firmam.com" aria-label="Kendi alan adın" />
-                    <button className="btn btn-primary" style={{ height: 40 }}>Bağla</button>
+                    <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="firmam.com" aria-label={t("Kendi alan adın")} />
+                    <button className="btn btn-primary" style={{ height: 40 }}>{t("Bağla")}</button>
                   </form>
-                  {domainMsg && <p className="masa-step-msg">{domainMsg}</p>}
+                  {domainMsg && <p className="masa-step-msg">{t(domainMsg)}</p>}
                 </div>
                 <div className="masa-step-card">
-                  <div className="masa-step-t"><Settings2 size={15} aria-hidden="true" /> Panonu tasarla</div>
-                  <p className="masa-step-desc">Tema, renk ve modül düzenini kendi markana göre ayarla — değişiklikler kaydedene kadar yalnız önizleme.</p>
-                  <button className="btn" onClick={() => nav(designHref)}>Tasarım editörünü aç</button>
+                  <div className="masa-step-t"><Settings2 size={15} aria-hidden="true" /> {t('Panonu tasarla')}</div>
+                  <p className="masa-step-desc">{t("Tema, renk ve modül düzenini kendi markana göre ayarla — değişiklikler kaydedene kadar yalnız önizleme.")}</p>
+                  <button className="btn" onClick={() => nav(designHref)}>{t("Tasarım editörünü aç")}</button>
                 </div>
               </div>
             </section>
           )}
 
           <div className="masa-desk-head" id="masa-desk">
-            <h2><LayoutGrid size={17} aria-hidden="true" /> {isBusiness ? 'İşletme modüllerin' : 'Kişisel panellerin'}</h2>
+            <h2><LayoutGrid size={17} aria-hidden="true" /> {t(isBusiness ? 'İşletme modüllerin' : 'Kişisel panellerin')}</h2>
             {canEditMasa && (
               <div className="masa-reopen">
                 <button className="btn masa-reset-btn" onClick={() => applyLayout(() => ({ modules: defaultMasaLayout(workspace.modules), closedModuleIds: [] }))}>
-                  <RotateCcw size={13} aria-hidden="true" /> Düzeni sıfırla
+                  <RotateCcw size={13} aria-hidden="true" /> {t("Düzeni sıfırla")}
                 </button>
                 {closedModules.map((m) => (
-                  <button key={m.id} className="chip" onClick={() => reopen(m)}>+ {m.label}</button>
+                  <button key={m.id} className="chip" onClick={() => reopen(m)}>+ {t(m.label)}</button>
                 ))}
               </div>
             )}
           </div>
 
           <p className="masa-honesty">
-            {masaPersistenceAvailable
+            {t(masaPersistenceAvailable
               ? 'Kartı başlığından tutup taşı; sağ alt köşeden serbestçe boyutlandır. Konum, boyut, kilit ve kapatma durumu workspace kaydına kalıcı yazılır.'
-              : 'Masa yerleşimi henüz kalıcı değil.'}
-            {layoutMsg && <span className="masa-layout-msg" role="status">{layoutMsg}</span>}
+              : 'Masa yerleşimi henüz kalıcı değil.')}
+            {layoutMsg && <span className="masa-layout-msg" role="status">{t(layoutMsg)}</span>}
           </p>
           </div>
 
-          <div className="masa-canvas-viewport" aria-label="Serbest çalışma masası">
+          <div className="masa-canvas-viewport" aria-label={t("Serbest çalışma masası")}>
             <div className="masa-canvas" style={{ height: canvasHeight }}>
-              {ordered.length === 0 && <p className="masa-empty masa-canvas-empty">Masa boş — yukarıdaki çiplerden modülü tekrar ekle.</p>}
+              {ordered.length === 0 && <p className="masa-empty masa-canvas-empty">{t("Masa boş — yukarıdaki çiplerden modülü tekrar ekle.")}</p>}
               {ordered.map((m) => (
                 <MasaModuleCard
                   key={m.id}
@@ -269,18 +270,18 @@ export function MasaDashboard({
                   onTogglePin={(id) => applyLayout((current) => ({ ...current, modules: togglePin(current.modules, id) }))}
                   onClose={(id) => applyLayout((current) => ({ modules: closeModule(current.modules, id), closedModuleIds: Array.from(new Set([...current.closedModuleIds, id])) }))}
                 >
-                  <button className="masa-open-btn" onClick={() => nav(moduleHref(m.id))}>Kayıtları aç →</button>
-                  <p className="masa-card-note">Ayrıntılı form, kalıcı kayıt, düzenleme ve silme. Klavye: oklarla taşı, Shift + oklarla boyutlandır.</p>
+                  <button className="masa-open-btn" onClick={() => nav(moduleHref(m.id))}>{t("Kayıtları aç →")}</button>
+                  <p className="masa-card-note">{t("Ayrıntılı form, kalıcı kayıt, düzenleme ve silme. Klavye: oklarla taşı, Shift + oklarla boyutlandır.")}</p>
                 </MasaModuleCard>
               ))}
             </div>
           </div>
 
           <div className="safety-footer masa-dashboard-footer">
-            <span>SENTETİK-ONLY</span>
-            <span>ÜRETİME YAZMAZ</span>
-            <span>YALNIZ SAHİBİ GÖRÜR</span>
-            <span>AI ÖNERİR · İNSAN ONAYLAR</span>
+            <span>{t("SENTETİK-ONLY")}</span>
+            <span>{t("ÜRETİME YAZMAZ")}</span>
+            <span>{t("YALNIZ SAHİBİ GÖRÜR")}</span>
+            <span>{t("AI ÖNERİR · İNSAN ONAYLAR")}</span>
           </div>
         </div>
         )}

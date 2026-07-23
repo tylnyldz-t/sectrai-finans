@@ -2,21 +2,22 @@
 // PENDING hesap bekleme ekranı görür (kayıt = erişim başvurusu); ADMIN otomatik yönetim paneline gider.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Archive, ArrowUpRight, Bell, Box, FolderArchive, ImagePlus, LayoutDashboard, Menu, MessageSquareText, PanelLeftClose, PanelLeftOpen, Pencil, Pin, PinOff, Plus, RefreshCw, UserRoundPlus } from 'lucide-react';
+import { Archive, ArrowUpRight, Bell, Box, Briefcase, Database, FolderArchive, ImagePlus, LayoutDashboard, Menu, MessageSquareText, PanelLeftClose, PanelLeftOpen, Pencil, Pin, PinOff, Plus, RefreshCw, User, UserRoundPlus } from 'lucide-react';
 import type { Conversation, PublicUser, Purpose, Workspace } from '@shared/types.ts';
 import { api, doLogout, setToken, type ConversationSummary } from '@/lib/api';
 import { useRouter } from '@/lib/router';
 import { ChatPane } from '@/components/ChatPane';
 import { CanvasPane } from '@/components/CanvasPane';
 import { Switcher, wsHref } from '@/components/Switcher';
+import { t } from '@/lib/i18n';
 
 export function AppShell() {
-  const { nav } = useRouter();
+  const { nav, path, search } = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [list, setList] = useState<ConversationSummary[]>([]);
   const [conv, setConv] = useState<Conversation | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [view, setView] = useState<'chat' | 'work'>('chat');
+  const [view, setView] = useState<'chat' | 'work'>(() => new URLSearchParams(search).get('view') === 'work' ? 'work' : 'chat');
   const [railOpen, setRailOpen] = useState(false);
   const [archiveView, setArchiveView] = useState(false);
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -69,6 +70,20 @@ export function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Görünüm URL'de tutulur: yenileme ile kaybolmaz, popstate geri/ileri hareketini geri yükler.
+  useEffect(() => {
+    setView(new URLSearchParams(search).get('view') === 'work' ? 'work' : 'chat');
+  }, [path, search]);
+
+  const selectView = (nextView: 'chat' | 'work') => {
+    setView(nextView);
+    setMobileSheetOpen(false);
+    if (nextView === 'chat') setRailOpen(false);
+    const target = nextView === 'work' ? '/app?view=work' : '/app';
+    const current = `${path}${search}`;
+    if (current !== target) nav(target);
+  };
+
   const wrap = async (fn: () => Promise<{ conversation: Conversation }>) => {
     setBusy(true);
     setError('');
@@ -77,7 +92,7 @@ export function AppShell() {
       setConv(r.conversation);
       await refreshList();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İstek başarısız');
+      setError(e instanceof Error ? e.message : t('İstek başarısız'));
     } finally {
       setBusy(false);
     }
@@ -113,7 +128,7 @@ export function AppShell() {
         }
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Sohbet güncellenemedi');
+      setError(cause instanceof Error ? cause.message : t('Sohbet güncellenemedi'));
     } finally {
       setBusy(false);
     }
@@ -144,7 +159,7 @@ export function AppShell() {
   if (!user) {
     return (
       <div className="auth-wrap">
-        <p style={{ color: 'var(--muted)' }}>Yükleniyor…</p>
+        <p style={{ color: 'var(--muted)' }}>{t("Yükleniyor…")}</p>
       </div>
     );
   }
@@ -159,22 +174,22 @@ export function AppShell() {
         <div className="card auth-card pending-card">
           <div className="orb" aria-hidden="true" />
           <h1 style={{ fontSize: 21, margin: '0 0 8px' }}>
-            {rejected ? 'Başvurun onaylanmadı' : suspended ? 'Erişimin askıya alındı' : 'Başvurun yönetici onayında'}
+            {t(rejected ? 'Başvurun onaylanmadı' : suspended ? 'Erişimin askıya alındı' : 'Başvurun yönetici onayında')}
           </h1>
           <p className="sub">
-            {rejected
+            {t(rejected
               ? 'Erişim başvurun reddedildi. Bir hata olduğunu düşünüyorsan destek ile iletişime geç.'
               : suspended
                 ? 'Hesabın yönetici tarafından geçici olarak askıya alındı. Erişim yeniden açıldığında çalışma alanların seni bekliyor olacak.'
-                : 'Ücretsiz hesabın oluşturuldu ve sıraya alındı. Yönetici onaylar onaylamaz sohbet arşivin ve UYGULA tuvalin seni bekliyor olacak.'}
+                : 'Ücretsiz hesabın oluşturuldu ve sıraya alındı. Yönetici onaylar onaylamaz sohbet arşivin ve UYGULA tuvalin seni bekliyor olacak.')}
           </p>
           {!rejected && (
             <button className="btn btn-primary" style={{ justifyContent: 'center', width: '100%' }} disabled={checking} onClick={() => void checkStatus()}>
-              <RefreshCw size={15} aria-hidden="true" className={checking ? 'spin' : undefined} /> Durumu kontrol et
+              <RefreshCw size={15} aria-hidden="true" className={checking ? 'spin' : undefined} /> {t("Durumu kontrol et")}
             </button>
           )}
           <button className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => { void doLogout().finally(() => nav('/')); }}>
-            Çıkış yap
+            {t("Çıkış yap")}
           </button>
         </div>
       </div>
@@ -184,7 +199,7 @@ export function AppShell() {
   if (!conv) {
     return (
       <div className="auth-wrap">
-        <p style={{ color: 'var(--muted)' }}>Yükleniyor…</p>
+        <p style={{ color: 'var(--muted)' }}>{t("Yükleniyor…")}</p>
       </div>
     );
   }
@@ -192,6 +207,9 @@ export function AppShell() {
   const rail = view === 'work' && !railOpen;
   // İşini kurmuş (adresi belli) çalışma alanları → doğrudan panoya kısayol
   const ready = workspaces.filter((w) => w.slug);
+  const knownSectorId = workspaces.find((w) => w.id === conv.workspaceId)?.sectorId
+    ?? workspaces.find((w) => w.sectorId)?.sectorId;
+  const kesfetPath = knownSectorId ? `/kesfet/${knownSectorId}` : '/kesfet';
   const goWs = (slug: string) => {
     const href = wsHref(slug);
     if (href.startsWith('/')) nav(href);
@@ -212,59 +230,94 @@ export function AppShell() {
   const activeConversations = list.filter((item) => !item.pinned && !item.archived);
   const archivedConversations = list.filter((item) => item.archived);
 
+  const purposeIndicator = (item: ConversationSummary) => {
+    if (item.purpose === null) return null;
+    const label = t(item.purpose === 'individual' ? 'Bireysel sohbet' : 'İş sohbeti');
+    return (
+      <span className="conv-purpose-indicator" role="img" aria-label={label} title={label}>
+        {item.purpose === 'individual'
+          ? <User size={14} aria-hidden="true" />
+          : <Briefcase size={14} aria-hidden="true" />}
+      </span>
+    );
+  };
+
   const renderConversation = (item: ConversationSummary, section: 'pinned' | 'active' | 'archived') => (
     <div key={item.id} className={`conv-entry${item.id === conv.id ? ' active' : ''}`}>
       {renameId === item.id ? (
         <form className="conv-rename" onSubmit={(event) => { event.preventDefault(); submitRename(item.id); }}>
-          <input autoFocus aria-label="Sohbet adı" value={renameValue} maxLength={120} onChange={(event) => setRenameValue(event.target.value)} onBlur={() => submitRename(item.id)} />
+          <input autoFocus aria-label={t("Sohbet adı")} value={renameValue} maxLength={120} onChange={(event) => setRenameValue(event.target.value)} onBlur={() => submitRename(item.id)} />
         </form>
       ) : (
         <button className="conv-item" onClick={() => openConv(item.id)} disabled={busy}>
-          <MessageSquareText size={14} aria-hidden="true" />
-          <span className="t">{item.title}</span>
-          {item.hasWorkspace && <span className="badge" title="Çalışma alanı kurulu">✓</span>}
-          {assignees[item.id] && <span className="conv-assignee" title={`Atandı: ${assignees[item.id]}`}>{assignees[item.id].charAt(0).toLocaleUpperCase('tr-TR')}</span>}
+          {section === 'active' ? purposeIndicator(item) : <MessageSquareText size={14} aria-hidden="true" />}
+          <span className="t">{t(item.title)}</span>
+          {item.hasWorkspace && <span className="badge" title={t("Çalışma alanı kurulu")}>✓</span>}
+          {assignees[item.id] && <span className="conv-assignee" title={t('Atandı: {name}', { name: assignees[item.id] })}>{assignees[item.id].charAt(0).toLocaleUpperCase('tr-TR')}</span>}
         </button>
       )}
-      <div className="conv-actions" aria-label={`${item.title} işlemleri`}>
+      <div className="conv-actions" aria-label={t('{title} işlemleri', { title: item.title })}>
         {section === 'pinned' && (
           <div className="conv-assign-wrap">
-            <button className={`conv-action${assignees[item.id] ? ' is-assigned' : ''}`} title={assignees[item.id] ? `Atandı: ${assignees[item.id]}` : 'Ekip üyesine ata'} aria-label="Ekip üyesine ata" onClick={() => setAssignMenuFor(assignMenuFor === item.id ? null : item.id)} disabled={busy}>
+            <button className={`conv-action${assignees[item.id] ? ' is-assigned' : ''}`} title={assignees[item.id] ? t('Atandı: {name}', { name: assignees[item.id] }) : t('Ekip üyesine ata')} aria-label={t("Ekip üyesine ata")} onClick={() => setAssignMenuFor(assignMenuFor === item.id ? null : item.id)} disabled={busy}>
               <UserRoundPlus size={13} aria-hidden="true" />
             </button>
             {assignMenuFor === item.id && (
               <div className="conv-assign-menu" role="menu">
-                <div className="conv-assign-head">Ekip üyesine ata</div>
+                <div className="conv-assign-head">{t("Ekip üyesine ata")}</div>
                 {team.map((m) => (
                   <button key={m.id} className={`conv-assign-item${assignees[item.id] === m.name ? ' active' : ''}`} role="menuitem" onClick={() => assign(item.id, m.name)}>
                     <span className="avatar sm" aria-hidden="true">{m.name.charAt(0).toLocaleUpperCase('tr-TR')}</span> <span className="t">{m.name}</span>{assignees[item.id] === m.name && ' ✓'}
                   </button>
                 ))}
-                {assignees[item.id] && <button className="conv-assign-item remove" role="menuitem" onClick={() => assign(item.id, null)}>Atamayı kaldır</button>}
+                {assignees[item.id] && <button className="conv-assign-item remove" role="menuitem" onClick={() => assign(item.id, null)}>{t("Atamayı kaldır")}</button>}
               </div>
             )}
           </div>
         )}
         {section === 'archived' ? (
-          <button className="conv-action" title="Arşivden çıkar" aria-label="Arşivden çıkar" onClick={() => void updateConversationMeta(item.id, { archived: false })} disabled={busy}>
+          <button className="conv-action" title={t("Arşivden çıkar")} aria-label={t("Arşivden çıkar")} onClick={() => void updateConversationMeta(item.id, { archived: false })} disabled={busy}>
             <Archive size={13} aria-hidden="true" />
           </button>
         ) : (
-          <button className="conv-action" title="Arşivle" aria-label="Arşivle" onClick={() => void updateConversationMeta(item.id, { archived: true })} disabled={busy}>
+          <button className="conv-action" title={t("Arşivle")} aria-label={t("Arşivle")} onClick={() => void updateConversationMeta(item.id, { archived: true })} disabled={busy}>
             <FolderArchive size={13} aria-hidden="true" />
           </button>
         )}
         {section !== 'archived' && (
-          <button className="conv-action" title={item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'} aria-label={item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'} onClick={() => void updateConversationMeta(item.id, { pinned: !item.pinned })} disabled={busy}>
+          <button className="conv-action" title={t(item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle')} aria-label={t(item.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle')} onClick={() => void updateConversationMeta(item.id, { pinned: !item.pinned })} disabled={busy}>
             {item.pinned ? <PinOff size={13} aria-hidden="true" /> : <Pin size={13} aria-hidden="true" />}
           </button>
         )}
-        <button className="conv-action" title="Yeniden adlandır" aria-label="Yeniden adlandır" onClick={() => beginRename(item.id, item.title)} disabled={busy}>
+        <button className="conv-action" title={t("Yeniden adlandır")} aria-label={t("Yeniden adlandır")} onClick={() => beginRename(item.id, item.title)} disabled={busy}>
           <Pencil size={13} aria-hidden="true" />
         </button>
       </div>
     </div>
   );
+
+  const renderGroupedConversations = (items: ConversationSummary[], section: 'pinned' | 'archived') => {
+    const individual = items.filter((item) => item.purpose === 'individual');
+    const business = items.filter((item) => item.purpose === 'business');
+    const unspecified = items.filter((item) => item.purpose === null);
+    return (
+      <>
+        {individual.length > 0 && (
+          <div className="conv-purpose-group">
+            <div className="conv-purpose-label" role="heading" aria-level={3}>{t('Bireysel')}</div>
+            {individual.map((item) => renderConversation(item, section))}
+          </div>
+        )}
+        {business.length > 0 && (
+          <div className="conv-purpose-group">
+            <div className="conv-purpose-label" role="heading" aria-level={3}>{t('İş')}</div>
+            {business.map((item) => renderConversation(item, section))}
+          </div>
+        )}
+        {unspecified.map((item) => renderConversation(item, section))}
+      </>
+    );
+  };
 
   return (
     <div className="shell" style={{ gridTemplateRows: showBanner ? '58px auto 1fr' : '58px 1fr' }}>
@@ -273,25 +326,33 @@ export function AppShell() {
           <span className="logo-orb" aria-hidden="true" /> <span className="logo-name">SECTRAI</span>
         </a>
 
-        {/* Header TAM ORTASI: CHAT | WORK */}
-        <div className="seg" role="tablist" aria-label="Görünüm">
-          <button role="tab" aria-selected={view === 'chat'} className={view === 'chat' ? 'active' : ''} onClick={() => { setView('chat'); setRailOpen(false); setMobileSheetOpen(false); }}>
-            KONUŞ
+        {/* Header TAM ORTASI: KONUŞ | KEŞFET | UYGULA | (MASA) */}
+        <div
+          className="seg"
+          role="tablist"
+          aria-label={t("Görünüm")}
+          style={{ maxWidth: '100%', overflowX: 'auto', overscrollBehaviorX: 'contain' }}
+        >
+          <button role="tab" aria-selected={view === 'chat'} className={view === 'chat' ? 'active' : ''} onClick={() => selectView('chat')}>
+            {t("KONUŞ")}
           </button>
-          <button role="tab" aria-selected={view === 'work'} className={view === 'work' ? 'active' : ''} onClick={() => { setView('work'); setMobileSheetOpen(false); }}>
-            UYGULA
+          <button role="tab" aria-selected={false} onClick={() => nav(kesfetPath)}>
+            {t("KEŞFET")}
           </button>
-          {/* Kişi Masa (çalışma alanı) kurmuşsa üçüncü sekme: KONUŞ | UYGULA | MASA yan yana */}
+          <button role="tab" aria-selected={view === 'work'} className={view === 'work' ? 'active' : ''} onClick={() => selectView('work')}>
+            {t("UYGULA")}
+          </button>
+          {/* Kişi Masa (çalışma alanı) kurmuşsa MASA en sonda kalır. */}
           {ready.length > 0 && (
-            <button role="tab" aria-selected={false} title="Çalışma alanına (Masa) git" onClick={() => goWs(currentWs.slug!)}>
-              MASA
+            <button role="tab" aria-selected={false} title={t("Çalışma alanına (Masa) git")} onClick={() => goWs(currentWs.slug!)}>
+              {t("MASA")}
             </button>
           )}
         </div>
 
         <div className="right">
-          <button className="btn btn-ghost mobile-archive-trigger" aria-label="Sohbet arşivini aç" onClick={() => setMobileArchiveOpen(true)}><Menu size={18} aria-hidden="true" /></button>
-          <button className="btn btn-ghost" aria-label="Bildirimler" title="Bildirimler"><Bell size={16} aria-hidden="true" /></button>
+          <button className="btn btn-ghost mobile-archive-trigger" aria-label={t("Sohbet arşivini aç")} onClick={() => setMobileArchiveOpen(true)}><Menu size={18} aria-hidden="true" /></button>
+          <button className="btn btn-ghost" aria-label={t('Bildirimler')} title={t('Bildirimler')}><Bell size={16} aria-hidden="true" /></button>
           <Switcher user={user} />
         </div>
       </header>
@@ -300,26 +361,26 @@ export function AppShell() {
       {showBanner && (
         <div className="ws-banner">
           <LayoutDashboard size={15} aria-hidden="true" />
-          <span>
-            İşin kurulu: <strong>{currentWs.title}</strong>
-            {ready.length > 1 && ` (+${ready.length - 1} alan daha)`} — Masa'na geçebilirsin.
-          </span>
+          <span>{t("İşin kurulu: {title}{more} — Masa'na geçebilirsin.", {
+            title: currentWs.title,
+            more: ready.length > 1 ? ` (+${ready.length - 1} ${t('alan daha')})` : '',
+          })}</span>
           <button className="btn btn-primary" style={{ marginLeft: 'auto', padding: '6px 14px', fontSize: 13 }} onClick={() => goWs(currentWs.slug!)}>
-            Masa'ya git <ArrowUpRight size={14} aria-hidden="true" />
+            {t("Masa'ya git")} <ArrowUpRight size={14} aria-hidden="true" />
           </button>
         </div>
       )}
 
       <div className="shell-body">
-        {mobileArchiveOpen && <button className="mobile-archive-backdrop" aria-label="Sohbet arşivini kapat" onClick={() => setMobileArchiveOpen(false)} />}
-        <aside className={`sidebar${rail ? ' rail' : ''}${mobileArchiveOpen ? ' mobile-open' : ''}`} aria-label="Sohbet arşivi">
+        {mobileArchiveOpen && <button className="mobile-archive-backdrop" aria-label={t("Sohbet arşivini kapat")} onClick={() => setMobileArchiveOpen(false)} />}
+        <aside className={`sidebar${rail ? ' rail' : ''}${mobileArchiveOpen ? ' mobile-open' : ''}`} aria-label={t("Sohbet arşivi")}>
           <div className="sidebar-top">
             {rail ? (
               <>
-                <button className="rail-btn" onClick={newConv} disabled={busy} aria-label="Yeni sohbet" title="Yeni sohbet">
+                <button className="rail-btn" onClick={newConv} disabled={busy} aria-label={t("Yeni sohbet")} title={t("Yeni sohbet")}>
                   <Plus size={17} aria-hidden="true" />
                 </button>
-                <button className="rail-btn" onClick={() => setRailOpen(true)} aria-label="Arşivi aç" title="Arşivi aç">
+                <button className="rail-btn" onClick={() => setRailOpen(true)} aria-label={t("Arşivi aç")} title={t("Arşivi aç")}>
                   <PanelLeftOpen size={17} aria-hidden="true" />
                 </button>
               </>
@@ -327,37 +388,38 @@ export function AppShell() {
               <>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button className="btn" onClick={newConv} disabled={busy} style={{ flex: 1, justifyContent: 'center' }}>
-                    <Plus size={15} aria-hidden="true" /> Yeni sohbet
+                    <Plus size={15} aria-hidden="true" /> {t("Yeni sohbet")}
                   </button>
                   {view === 'work' && (
-                    <button className="rail-btn" onClick={() => setRailOpen(false)} aria-label="Sohbet çubuğunu sola daralt" title="Sola daralt"><PanelLeftClose size={17} aria-hidden="true" /></button>
+                    <button className="rail-btn" onClick={() => setRailOpen(false)} aria-label={t("Sohbet çubuğunu sola daralt")} title={t('Sola daralt')}><PanelLeftClose size={17} aria-hidden="true" /></button>
                   )}
                 </div>
-                {archiveView && <button className="sidebar-back" onClick={() => setArchiveView(false)}>← Sohbetlere dön</button>}
+                {archiveView && <button className="sidebar-back" onClick={() => setArchiveView(false)}>{t("← Sohbetlere dön")}</button>}
               </>
             )}
           </div>
           {!rail && <>
-            <div className="sidebar-label sidebar-plugin-label">Eklentiler</div>
+            <div className="sidebar-label sidebar-plugin-label">{t('Eklentiler')}</div>
             <div className="sidebar-plugins">
-              <button className="sidebar-plugin" title="Entegrasyonlar (Google Drive vb. — yakında)"><Box size={14} aria-hidden="true" /> Entegrasyonlar</button>
-              <button className="sidebar-plugin" type="button" title="Görsel Oluştur — yakında Seedance / Kling AI" aria-label="Görsel Oluştur (yakında: Seedance / Kling AI)"><ImagePlus size={14} aria-hidden="true" /> Görsel Oluştur</button>
-              <button className="sidebar-plugin-add" type="button" aria-label="Eklenti ekle (yakında etkinleşecek)"><Plus size={14} aria-hidden="true" /> Eklenti ekle</button>
+              <button className="sidebar-plugin" title={t("Entegrasyonlar (Google Drive vb. — yakında)")}><Box size={14} aria-hidden="true" /> {t('Entegrasyonlar')}</button>
+              <button className="sidebar-plugin" type="button" title={t("Görsel Oluştur — yakında Seedance / Kling AI")} aria-label={t("Görsel Oluştur (yakında: Seedance / Kling AI)")}><ImagePlus size={14} aria-hidden="true" /> {t("Görsel Oluştur")}</button>
+              <button className="sidebar-plugin" type="button" title={t("Kamuya açık listeleri derler — yakında Apify")}><Database size={14} aria-hidden="true" /> {t("Dış veri topla")}</button>
+              <button className="sidebar-plugin-add" type="button" aria-label={t("Eklenti ekle (yakında etkinleşecek)")}><Plus size={14} aria-hidden="true" /> {t("Eklenti ekle")}</button>
             </div>
           </>}
           <div className="conv-list">
             {archiveView ? (
               <>
-                <div className="sidebar-label"><span>Arşiv</span><span className="archive-count">{archivedConversations.length}</span></div>
-                {archivedConversations.length ? archivedConversations.map((item) => renderConversation(item, 'archived')) : <p className="conv-empty">Arşivde sohbet yok.</p>}
+                <div className="sidebar-label"><span>{t("Arşiv")}</span><span className="archive-count">{archivedConversations.length}</span></div>
+                {archivedConversations.length ? renderGroupedConversations(archivedConversations, 'archived') : <p className="conv-empty">{t("Arşivde sohbet yok.")}</p>}
               </>
             ) : (
               <>
-                <div className="sidebar-label"><span>Sabitlenenler</span><span className="badge badge-free">FREE</span></div>
-                {pinnedConversations.length ? pinnedConversations.map((item) => renderConversation(item, 'pinned')) : <p className="conv-empty">Sabitlenen sohbet yok.</p>}
-                <div className="sidebar-label sidebar-conv-label">Sohbetler</div>
+                <div className="sidebar-label"><span>{t('Sabitlenenler')}</span><span className="badge badge-free">FREE</span></div>
+                {pinnedConversations.length ? renderGroupedConversations(pinnedConversations, 'pinned') : <p className="conv-empty">{t("Sabitlenen sohbet yok.")}</p>}
+                <div className="sidebar-label sidebar-conv-label">{t('Sohbetler')}</div>
                 {activeConversations.map((item) => renderConversation(item, 'active'))}
-                <button className="sidebar-archive-link" onClick={() => setArchiveView(true)}><FolderArchive size={14} aria-hidden="true" /> Arşiv <span>{archivedConversations.length}</span></button>
+                <button className="sidebar-archive-link" onClick={() => setArchiveView(true)}><FolderArchive size={14} aria-hidden="true" /> {t("Arşiv")} <span>{archivedConversations.length}</span></button>
               </>
             )}
           </div>
@@ -365,7 +427,7 @@ export function AppShell() {
             <span className="avatar" aria-hidden="true">{user.name.charAt(0).toLocaleUpperCase('tr-TR')}</span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Ücretsiz plan</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{t("Ücretsiz plan")}</div>
             </div>
           </div>
         </aside>
@@ -380,8 +442,8 @@ export function AppShell() {
 
       {error && (
         <div className="toast" role="alert">
-          <span>{error}</span>
-          <button className="close" onClick={() => setError('')} aria-label="Kapat">×</button>
+          <span>{t(error)}</span>
+          <button className="close" onClick={() => setError('')} aria-label={t("Kapat")}>×</button>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import type { ProviderStatus } from '@shared/providers.ts';
 import { api } from '@/lib/api';
 import { useRouter } from '@/lib/router';
 import { Switcher } from '@/components/Switcher';
+import { t } from '@/lib/i18n';
 
 const STATUS_TR: Record<string, { label: string; cls: string }> = {
   PENDING_APPROVAL: { label: 'ONAY BEKLİYOR', cls: 'pending' },
@@ -95,7 +96,7 @@ export function AdminPage() {
     }
   };
 
-  if (!me) return <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>Yükleniyor…</p></div>;
+  if (!me) return <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>{t("Yükleniyor…")}</p></div>;
 
   const pending = users.filter((u) => u.accountStatus === 'PENDING_APPROVAL');
   const manageable = users.filter((u) => u.platformRole !== 'ADMIN');
@@ -106,25 +107,25 @@ export function AdminPage() {
         <a className="logo" href="/" onClick={(e) => { e.preventDefault(); nav('/'); }}>
           <span className="logo-orb" aria-hidden="true" /> SECTRAI
         </a>
-        <span className="slug-pill"><ShieldCheck size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px' }} /> YÖNETİM PANELİ</span>
+        <span className="slug-pill"><ShieldCheck size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px' }} /> {t("YÖNETİM PANELİ")}</span>
         <Switcher user={me} />
       </header>
       <div className="dash-body">
         <div className="stat-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          <div className="card stat-card"><div className="v">{pending.length}</div><div className="l">Onay bekleyen</div></div>
-          <div className="card stat-card"><div className="v">{users.filter((u) => u.accountStatus === 'ACTIVE').length}</div><div className="l">Aktif hesap</div></div>
-          <div className="card stat-card"><div className="v">{users.filter((u) => u.accountStatus === 'SUSPENDED').length}</div><div className="l">Askıda</div></div>
-          <div className="card stat-card"><div className="v">{providers.filter((p) => p.configured).length}/{providers.length}</div><div className="l">AI anahtarı</div></div>
+          <div className="card stat-card"><div className="v">{pending.length}</div><div className="l">{t("Onay bekleyen")}</div></div>
+          <div className="card stat-card"><div className="v">{users.filter((u) => u.accountStatus === 'ACTIVE').length}</div><div className="l">{t("Aktif hesap")}</div></div>
+          <div className="card stat-card"><div className="v">{users.filter((u) => u.accountStatus === 'SUSPENDED').length}</div><div className="l">{t("Askıda")}</div></div>
+          <div className="card stat-card"><div className="v">{providers.filter((p) => p.configured).length}/{providers.length}</div><div className="l">{t("AI anahtarı")}</div></div>
         </div>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && <p className="form-error" role="alert">{t(error)}</p>}
 
         {/* ── 1) Erişim yaşam döngüsü + 2) onay-sonrası erişim yönetimi ── */}
-        <h2 style={{ fontSize: 17, margin: '4px 0 12px' }}>Erişim yönetimi</h2>
+        <h2 style={{ fontSize: 17, margin: '4px 0 12px' }}>{t("Erişim yönetimi")}</h2>
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table className="admin-table">
               <thead>
-                <tr><th>Kullanıcı</th><th>Durum</th><th>İş</th><th>Bireysel</th><th style={{ textAlign: 'right' }}>Karar</th></tr>
+                <tr><th>{t("Kullanıcı")}</th><th>{t("Durum")}</th><th>{t("İş")}</th><th>{t("Bireysel")}</th><th style={{ textAlign: 'right' }}>{t('Karar')}</th></tr>
               </thead>
               <tbody>
                 {manageable.map((u) => {
@@ -136,15 +137,15 @@ export function AdminPage() {
                         <div style={{ fontWeight: 600 }}>{u.name}</div>
                         <div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{u.email}</div>
                       </td>
-                      <td><span className={`status-badge ${st.cls}`}>{st.label}</span></td>
+                      <td><span className={`status-badge ${st.cls}`}>{t(st.label)}</span></td>
                       <td>
                         <button
                           className={`gate-toggle${u.entitlements.business ? ' on' : ''}`}
                           disabled={!canGate || busy === u.id}
                           onClick={() => void toggleEnt(u, 'business')}
                           aria-pressed={u.entitlements.business}
-                          title="İş çalışma alanı erişimi"
-                        >{u.entitlements.business ? 'Açık' : 'Kapalı'}</button>
+                          title={t("İş çalışma alanı erişimi")}
+                        >{t(u.entitlements.business ? 'Açık' : 'Kapalı')}</button>
                       </td>
                       <td>
                         <button
@@ -152,33 +153,33 @@ export function AdminPage() {
                           disabled={!canGate || busy === u.id}
                           onClick={() => void toggleEnt(u, 'individual')}
                           aria-pressed={u.entitlements.individual}
-                          title="Bireysel çalışma alanı erişimi"
-                        >{u.entitlements.individual ? 'Açık' : 'Kapalı'}</button>
+                          title={t("Bireysel çalışma alanı erişimi")}
+                        >{t(u.entitlements.individual ? 'Açık' : 'Kapalı')}</button>
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {u.accountStatus === 'PENDING_APPROVAL' && (
                           <span style={{ display: 'inline-flex', gap: 8 }}>
                             <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12.5 }} disabled={busy === u.id} onClick={() => void decide(u.id, 'approve')}>
-                              <Check size={13} aria-hidden="true" /> Onayla
+                              <Check size={13} aria-hidden="true" /> {t("Onayla")}
                             </button>
                             <button className="btn" style={{ padding: '6px 12px', fontSize: 12.5 }} disabled={busy === u.id} onClick={() => void decide(u.id, 'reject')}>
-                              <X size={13} aria-hidden="true" /> Reddet
+                              <X size={13} aria-hidden="true" /> {t("Reddet")}
                             </button>
                           </span>
                         )}
                         {u.accountStatus === 'ACTIVE' && (
                           <button className="btn" style={{ padding: '6px 12px', fontSize: 12.5 }} disabled={busy === u.id} onClick={() => void decide(u.id, 'suspend')}>
-                            Erişimi askıya al
+                            {t("Erişimi askıya al")}
                           </button>
                         )}
                         {u.accountStatus === 'SUSPENDED' && (
                           <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12.5 }} disabled={busy === u.id} onClick={() => void decide(u.id, 'reactivate')}>
-                            Erişimi aç
+                            {t("Erişimi aç")}
                           </button>
                         )}
                         {u.accountStatus === 'REJECTED' && (
                           <button className="btn" style={{ padding: '6px 12px', fontSize: 12.5 }} disabled={busy === u.id} onClick={() => void decide(u.id, 'approve')}>
-                            Yine de onayla
+                            {t("Yine de onayla")}
                           </button>
                         )}
                       </td>
@@ -186,23 +187,23 @@ export function AdminPage() {
                   );
                 })}
                 {manageable.length === 0 && (
-                  <tr><td colSpan={5} style={{ color: 'var(--muted-2)', textAlign: 'center', padding: 18 }}>Henüz kullanıcı yok.</td></tr>
+                  <tr><td colSpan={5} style={{ color: 'var(--muted-2)', textAlign: 'center', padding: 18 }}>{t("Henüz kullanıcı yok.")}</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
         <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: '10px 0 0' }}>
-          Karar insanda — hesaplar yalnızca buradan aktifleşir. "İş/Bireysel" kapıları onay SONRASI daraltılıp genişletilebilir; kapalıysa o tarafta çalışma alanı kuramaz (fail-closed).
+          {t("Karar insanda — hesaplar yalnızca buradan aktifleşir. \"İş/Bireysel\" kapıları onay SONRASI daraltılıp genişletilebilir; kapalıysa o tarafta çalışma alanı kuramaz (fail-closed).")}
         </p>
 
         {/* ── 3) AI sağlayıcı anahtarları ── */}
         <h2 style={{ fontSize: 17, margin: '28px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <KeyRound size={16} aria-hidden="true" /> AI sağlayıcı anahtarları
+          <KeyRound size={16} aria-hidden="true" /> {t("AI sağlayıcı anahtarları")}
         </h2>
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: '0 0 12px' }}>
-          Anahtarlar şifreli saklanır, kaydedildikten sonra bir daha GÖSTERİLMEZ — yalnız ayarlı/ayarsız durumu görünür.
-          {brainNote && <> {brainNote}</>}
+          {t("Anahtarlar şifreli saklanır, kaydedildikten sonra bir daha GÖSTERİLMEZ — yalnız ayarlı/ayarsız durumu görünür.")}
+          {brainNote && <> {t(brainNote)}</>}
         </p>
         <div className="module-grid">
           {providers.map((p) => (
@@ -215,29 +216,28 @@ export function AdminPage() {
         </div>
 
         <div className="safety-footer" style={{ marginTop: 22 }}>
-          <span>ANAHTARLAR ŞİFRELİ</span>
-          <span>DÜZ METİN LOGLANMAZ</span>
+          <span>{t("ANAHTARLAR ŞİFRELİ")}</span>
+          <span>{t("DÜZ METİN LOGLANMAZ")}</span>
           <span>
-            {brainMode === 'LLM'
+            {t(brainMode === 'LLM'
               ? `BEYİN: LLM · ${providers.find((p) => p.id === brainProvider)?.label ?? brainProvider}`
-              : 'BEYİN SENTETİK'}
+              : 'BEYİN SENTETİK')}
           </span>
-          <span>WORK DETERMİNİSTİK (AI KENDİ ONAYINI ÜRETEMEZ)</span>
+          <span>{t("WORK DETERMİNİSTİK (AI KENDİ ONAYINI ÜRETEMEZ)")}</span>
         </div>
 
         {/* ── 4) Yönetişim günlüğü (hesap-verebilirlik) ── */}
         <h2 style={{ fontSize: 17, margin: '28px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <History size={16} aria-hidden="true" /> Yönetişim günlüğü
+          <History size={16} aria-hidden="true" /> {t("Yönetişim günlüğü")}
         </h2>
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: '0 0 12px' }}>
-          Her yönetici kararı iz bırakır: kim, kime/neye, ne, ne zaman. Sağlayıcı anahtarları için yalnız
-          "ayarlandı/silindi" kaydedilir — anahtarın kendisi ASLA günlüğe girmez.
+          {t("Her yönetici kararı iz bırakır: kim, kime/neye, ne, ne zaman. Sağlayıcı anahtarları için yalnız\n          \"ayarlandı/silindi\" kaydedilir — anahtarın kendisi ASLA günlüğe girmez.")}
         </p>
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table className="admin-table">
               <thead>
-                <tr><th>Zaman</th><th>Yönetici</th><th>Aksiyon</th><th>Hedef / ayrıntı</th></tr>
+                <tr><th>{t('Zaman')}</th><th>{t("Yönetici")}</th><th>{t('Aksiyon')}</th><th>{t("Hedef / ayrıntı")}</th></tr>
               </thead>
               <tbody>
                 {governance.map((g) => (
@@ -246,12 +246,12 @@ export function AdminPage() {
                       {new Date(g.at).toLocaleString('tr-TR')}
                     </td>
                     <td style={{ fontSize: 12.5 }}>{g.actorEmail}</td>
-                    <td style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{GOV_ACTION_TR[g.action] ?? g.action}</td>
-                    <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.detail}</td>
+                    <td style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{t(GOV_ACTION_TR[g.action] ?? g.action)}</td>
+                    <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t(g.detail)}</td>
                   </tr>
                 ))}
                 {governance.length === 0 && (
-                  <tr><td colSpan={4} style={{ color: 'var(--muted-2)', textAlign: 'center', padding: 18 }}>Henüz yönetici kararı yok.</td></tr>
+                  <tr><td colSpan={4} style={{ color: 'var(--muted-2)', textAlign: 'center', padding: 18 }}>{t("Henüz yönetici kararı yok.")}</td></tr>
                 )}
               </tbody>
             </table>
@@ -303,28 +303,28 @@ function ProviderCard({ p, onChange }: { p: ProviderStatus; onChange: (p: Provid
   return (
     <div className="card module-card">
       <div className="m-head" style={{ justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>{p.label}</span>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>{t(p.label)}</span>
         <span className={`status-badge ${p.configured ? (p.verifiedAt ? 'active' : 'pending') : 'rejected'}`}>
-          {p.configured ? (p.verifiedAt ? 'DOĞRULANDI' : 'AYARLI · DOĞRULANMADI') : 'AYARSIZ'}
+          {t(p.configured ? (p.verifiedAt ? 'DOĞRULANDI' : 'AYARLI · DOĞRULANMADI') : 'AYARSIZ')}
         </span>
       </div>
       {p.configured && p.setAt && (
-        <div className="m-count" style={{ marginBottom: 8 }}>Ayarlayan: {p.setBy} · {p.setAt.slice(0, 10)}</div>
+        <div className="m-count" style={{ marginBottom: 8 }}>{t('Ayarlayan: {name} · {date}', { name: p.setBy ?? '', date: p.setAt.slice(0, 10) })}</div>
       )}
-      {note && <p className="m-count" role="status" style={{ marginBottom: 8, color: note.startsWith('✓') ? 'var(--good)' : 'var(--warn)' }}>{note}</p>}
-      {err && <p className="form-error" role="alert" style={{ padding: '6px 9px', fontSize: 12 }}>{err}</p>}
+      {note && <p className="m-count" role="status" style={{ marginBottom: 8, color: note.startsWith('✓') ? 'var(--good)' : 'var(--warn)' }}>{t(note)}</p>}
+      {err && <p className="form-error" role="alert" style={{ padding: '6px 9px', fontSize: 12 }}>{t(err)}</p>}
       {editing ? (
         <div className="domain-form" style={{ marginTop: 4 }}>
-          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={p.hint} aria-label={`${p.label} API anahtarı`} autoComplete="off" />
-          <button className="btn btn-primary" style={{ height: 40 }} disabled={busy || key.trim().length < 8} onClick={() => void save()}>Kaydet</button>
+          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={t(p.hint)} aria-label={t('{label} API anahtarı', { label: t(p.label) })} autoComplete="off" />
+          <button className="btn btn-primary" style={{ height: 40 }} disabled={busy || key.trim().length < 8} onClick={() => void save()}>{t("Kaydet")}</button>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button className="btn" style={{ padding: '7px 12px', fontSize: 12.5 }} disabled={busy} onClick={() => setEditing(true)}>
-            {p.configured ? 'Anahtarı değiştir' : 'Anahtar ekle'}
+            {t(p.configured ? 'Anahtarı değiştir' : 'Anahtar ekle')}
           </button>
           {p.configured && (
-            <button className="btn btn-ghost" style={{ padding: '7px 10px', fontSize: 12.5 }} disabled={busy} onClick={() => void remove()} aria-label="Anahtarı sil">
+            <button className="btn btn-ghost" style={{ padding: '7px 10px', fontSize: 12.5 }} disabled={busy} onClick={() => void remove()} aria-label={t("Anahtarı sil")}>
               <Trash2 size={14} aria-hidden="true" />
             </button>
           )}

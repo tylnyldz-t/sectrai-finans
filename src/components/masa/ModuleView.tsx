@@ -4,14 +4,17 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { BRAND_IDENTITY_MODULE_ID } from '@shared/registry.ts';
 import type { ModuleRecord, ModuleSchema, SchemaField, Workspace } from '@shared/types.ts';
 import { api } from '@/lib/api';
+import { BrandIdentityModuleView } from '@/components/BrandIdentityModuleView';
+import { t } from '@/lib/i18n';
 
 type FormValues = Record<string, string | boolean>;
 
 function fmt(value: unknown): string {
   if (value === undefined || value === null || value === '') return '—';
-  if (typeof value === 'boolean') return value ? 'Evet' : 'Hayır';
+  if (typeof value === 'boolean') return t(value ? 'Evet' : 'Hayır');
   if (typeof value === 'number') return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(value);
   return String(value);
 }
@@ -25,7 +28,14 @@ function formValuesFor(schema: ModuleSchema, record?: ModuleRecord): FormValues 
   return values;
 }
 
-export function ModuleView({ workspace, moduleId, onBack }: { workspace: Workspace; moduleId: string; onBack: () => void }) {
+export function ModuleView(props: { workspace: Workspace; moduleId: string; onBack: () => void }) {
+  if (props.moduleId === BRAND_IDENTITY_MODULE_ID) {
+    return <BrandIdentityModuleView brandName={props.workspace.title} onBack={props.onBack} />;
+  }
+  return <RecordsModuleView {...props} />;
+}
+
+function RecordsModuleView({ workspace, moduleId, onBack }: { workspace: Workspace; moduleId: string; onBack: () => void }) {
   const [schema, setSchema] = useState<ModuleSchema | null>(null);
   const [label, setLabel] = useState('');
   const [records, setRecords] = useState<ModuleRecord[]>([]);
@@ -100,7 +110,7 @@ export function ModuleView({ workspace, moduleId, onBack }: { workspace: Workspa
     }
   };
 
-  if (!schema) return <div className="masa-content"><p style={{ color: 'var(--muted)' }}>{error || 'Yükleniyor…'}</p></div>;
+  if (!schema) return <div className="masa-content"><p style={{ color: 'var(--muted)' }}>{t(error || 'Yükleniyor…')}</p></div>;
 
   const columns = schema.columns?.length ? schema.columns : schema.fields.slice(0, 3).map((field) => field.key);
   const statusLabel = (value: string | null) => schema.statuses?.find((item) => item.value === value)?.label ?? value ?? '—';
@@ -119,13 +129,13 @@ export function ModuleView({ workspace, moduleId, onBack }: { workspace: Workspa
     if (field.type === 'enum' && field.enumValues) {
       return (
         <select value={value} onChange={(event) => setValue(field.key, event.target.value)} required={field.required}>
-          <option value="">— Seç —</option>
-          {field.enumValues.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="">{t('— Seç —')}</option>
+          {field.enumValues.map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
         </select>
       );
     }
     if (field.type === 'textarea') {
-      return <textarea value={value} onChange={(event) => setValue(field.key, event.target.value)} placeholder={field.placeholder ?? field.label} {...shared} />;
+      return <textarea value={value} onChange={(event) => setValue(field.key, event.target.value)} placeholder={t(field.placeholder ?? field.label)} {...shared} />;
     }
     if (field.type === 'boolean') {
       return <input className="mv-checkbox" type="checkbox" checked={rawValue === true} onChange={(event) => setValue(field.key, event.target.checked)} required={field.required} />;
@@ -136,66 +146,68 @@ export function ModuleView({ workspace, moduleId, onBack }: { workspace: Workspa
           : field.type === 'email' ? 'email'
             : field.type === 'tel' ? 'tel'
               : 'text';
-    return <input type={type} value={value} onChange={(event) => setValue(field.key, event.target.value)} placeholder={field.placeholder ?? field.label} step={field.type === 'integer' ? '1' : undefined} {...shared} />;
+    return <input type={type} value={value} onChange={(event) => setValue(field.key, event.target.value)} placeholder={t(field.placeholder ?? field.label)} step={field.type === 'integer' ? '1' : undefined} {...shared} />;
   };
 
   return (
     <div className="masa-content">
       <div className="mv-head">
-        <button className="btn" onClick={onBack}><ArrowLeft size={15} aria-hidden="true" /> Masa'ya dön</button>
-        <h1>{label}</h1>
-        <span className="masa-slug-pill">{records.length} kayıt</span>
-        <span className="masa-life accent">Sentetik demo</span>
+        <button className="btn" onClick={onBack}><ArrowLeft size={15} aria-hidden="true" /> {t("Masa'ya dön")}</button>
+        <h1>{t(label)}</h1>
+        <span className="masa-slug-pill">{t('{n} kayıt', { n: records.length })}</span>
+        <span className="masa-life accent">{t('Sentetik demo')}</span>
       </div>
-      <p className="masa-honesty">Bu kayıt defteri kalıcıdır; ancak SECTRAI demo ortamında üretim sistemlerine yazmaz.</p>
-      {error && <p className="form-error" role="alert">{error}</p>}
+      <p className="masa-honesty">{t('Bu kayıt defteri kalıcıdır; ancak SECTRAI demo ortamında üretim sistemlerine yazmaz.')}</p>
+      {error && <p className="form-error" role="alert">{t(error)}</p>}
 
       <form id="module-record-form" className="card mv-form" onSubmit={(event) => void submit(event)}>
         <div className="mv-form-head">
-          <div className="mv-form-title">{editing ? <Pencil size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}{editing ? `${schema.noun ?? 'Kayıt'} düzenle` : `Yeni ${schema.noun ?? 'kayıt'}`}</div>
-          {editing && <button className="btn mv-cancel" type="button" onClick={() => resetForm()}><X size={14} aria-hidden="true" /> Vazgeç</button>}
+          <div className="mv-form-title">{editing ? <Pencil size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}{editing
+            ? t('{noun} düzenle', { noun: t(schema.noun ?? 'Kayıt') })
+            : t('Yeni {noun}', { noun: t(schema.noun ?? 'kayıt') })}</div>
+          {editing && <button className="btn mv-cancel" type="button" onClick={() => resetForm()}><X size={14} aria-hidden="true" /> {t('Vazgeç')}</button>}
         </div>
         <div className="mv-fields">
           {schema.fields.map((field) => (
             <label key={field.key} className={`mv-field${field.type === 'textarea' ? ' wide' : ''}${field.type === 'boolean' ? ' checkbox' : ''}`}>
-              <span>{field.label}{field.required && <span className="req-star">*</span>}</span>
+              <span>{t(field.label)}{field.required && <span className="req-star">*</span>}</span>
               {renderInput(field)}
-              {field.helpText && <small>{field.helpText}</small>}
+              {field.helpText && <small>{t(field.helpText)}</small>}
             </label>
           ))}
           {schema.statuses && schema.statuses.length > 0 && (
             <label className="mv-field">
-              <span>Durum</span>
+              <span>{t('Durum')}</span>
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                {schema.statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                {schema.statuses.map((item) => <option key={item.value} value={item.value}>{t(item.label)}</option>)}
               </select>
             </label>
           )}
         </div>
         <div className="mv-form-actions">
-          <button className="btn btn-primary" disabled={busy} style={{ height: 42 }}>{busy ? 'Kaydediliyor…' : editing ? 'Değişiklikleri kaydet' : 'Kaydı oluştur'}</button>
-          <span>Yıldızlı alanlar zorunludur. Kaydetme sunucuda alan türü ve kurallarla yeniden doğrulanır.</span>
+          <button className="btn btn-primary" disabled={busy} style={{ height: 42 }}>{t(busy ? 'Kaydediliyor…' : editing ? 'Değişiklikleri kaydet' : 'Kaydı oluştur')}</button>
+          <span>{t('Yıldızlı alanlar zorunludur. Kaydetme sunucuda alan türü ve kurallarla yeniden doğrulanır.')}</span>
         </div>
       </form>
 
       <div className="card mv-table-wrap">
         {records.length === 0 ? (
-          <p className="mv-empty">Henüz kayıt yok — yukarıdaki ayrıntılı formla ilk kaydı oluştur.</p>
+          <p className="mv-empty">{t('Henüz kayıt yok — yukarıdaki ayrıntılı formla ilk kaydı oluştur.')}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="admin-table">
               <thead>
-                <tr>{columns.map((column) => <th key={column}>{fieldLabel(column)}</th>)}<th>Durum</th><th>Son değişiklik</th><th aria-label="işlemler"></th></tr>
+                <tr>{columns.map((column) => <th key={column}>{t(fieldLabel(column))}</th>)}<th>{t('Durum')}</th><th>{t('Son değişiklik')}</th><th aria-label={t('işlemler')}></th></tr>
               </thead>
               <tbody>
                 {records.map((record) => (
                   <tr key={record.id}>
                     {columns.map((column) => <td key={column}>{fmt(record.values[column])}</td>)}
-                    <td>{statusLabel(record.status)}</td>
+                    <td>{t(statusLabel(record.status))}</td>
                     <td className="mono" style={{ fontSize: 11.5, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>{record.updatedAt.slice(0, 10)}</td>
                     <td className="mv-row-actions">
-                      <button className="masa-ic" title="Kaydı düzenle" aria-label="Kaydı düzenle" onClick={() => beginEdit(record)}><Pencil size={14} aria-hidden="true" /></button>
-                      <button className="masa-ic" title="Kaydı sil" aria-label="Kaydı sil" onClick={() => void remove(record.id)}><Trash2 size={14} aria-hidden="true" /></button>
+                      <button className="masa-ic" title={t('Kaydı düzenle')} aria-label={t('Kaydı düzenle')} onClick={() => beginEdit(record)}><Pencil size={14} aria-hidden="true" /></button>
+                      <button className="masa-ic" title={t('Kaydı sil')} aria-label={t('Kaydı sil')} onClick={() => void remove(record.id)}><Trash2 size={14} aria-hidden="true" /></button>
                     </td>
                   </tr>
                 ))}

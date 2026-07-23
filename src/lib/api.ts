@@ -5,6 +5,7 @@ import type { ModuleSchema } from '@shared/types.ts';
 import type { DashboardDesign } from '@shared/dashboard-design.ts';
 import type { ProviderStatus } from '@shared/providers.ts';
 import type { ModuleDefinitionV2, ModuleRevisionV2, WorkflowInstanceBundle, WorkflowStepStatus } from '@shared/adaptive-modules.ts';
+import { closeAdminGateSession, resolveAdminGateUser } from './admin-gate';
 
 const TOKEN_KEY = 'sectrai.token';
 
@@ -67,7 +68,10 @@ export const api = {
     }),
   login: (input: { email: string; password: string }) =>
     call<{ token: string; user: PublicUser }>('/api/auth/login', { method: 'POST', body: JSON.stringify(input) }),
-  me: () => call<{ user: PublicUser; features: { adaptiveModulesV2: boolean } }>('/api/auth/me'),
+  me: async () => {
+    const response = await call<{ user: PublicUser; features: { adaptiveModulesV2: boolean } }>('/api/auth/me');
+    return { ...response, user: await resolveAdminGateUser(response.user) };
+  },
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
   conversations: () => call<{ conversations: ConversationSummary[] }>('/api/conversations'),
   createConversation: () => call<{ conversation: Conversation }>('/api/conversations', { method: 'POST' }),
@@ -206,4 +210,5 @@ export async function doLogout(): Promise<void> {
     /* token zaten geçersiz olabilir — yine de yereli temizle */
   }
   setToken(null);
+  await closeAdminGateSession();
 }

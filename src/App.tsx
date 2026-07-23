@@ -12,6 +12,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { SectorDemoPage } from '@/pages/SectorDemoPage';
 import { api } from '@/lib/api';
 import { useRouter } from '@/lib/router';
+import { t, useLang } from '@/lib/i18n';
 
 type HostInfo =
   | { mode: 'root' }
@@ -21,6 +22,7 @@ type HostInfo =
   | { mode: 'reserved-inactive'; slug: string };
 
 export function App() {
+  useLang();
   const { path } = useRouter();
   const [host, setHost] = useState<HostInfo | null>(null);
 
@@ -40,7 +42,7 @@ export function App() {
   if (host === null) return null;
 
   // Rezerve ürün alt-alanı → gerçek ürüne yönlendiriliyor (kök front-door path'lerinden ÖNCE).
-  if (host.mode === 'redirect') return <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>Yönlendiriliyor…</p></div>;
+  if (host.mode === 'redirect') return <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>{t("Yönlendiriliyor…")}</p></div>;
   if (host.mode === 'reserved-inactive') return <ReservedInactive slug={host.slug} />;
 
   // /giris ve /kayit HER host modunda erişilebilir olmalı: aynı hesap tüm alt-alanlarda
@@ -54,7 +56,7 @@ export function App() {
 
   if (host.mode === 'sector-demo') return <SectorDemoPage subdomain={host.subdomain} />;
   if (host.mode === 'workspace') {
-    // Alt-alanda: /m/<modül> → modül sayfası, /tasarim → dashboard Puck, /modul-studyo → ayrı V2 Puck.
+    // Alt-alanda: /m/<modül> → modül sayfası, /tasarim → flat dashboard editörü, /modul-studyo → ayrı V2 Puck.
     const mMatch = path.match(/^\/m\/([a-z0-9-]+)$/);
     return <DashboardPage slug={host.slug} basePath="" designMode={path === '/tasarim'} studioMode={path === '/modul-studyo'} moduleId={mMatch ? mMatch[1] : undefined} />;
   }
@@ -76,8 +78,8 @@ function ReservedInactive({ slug }: { slug: string }) {
       <div className="card auth-card pending-card">
         <div className="orb" aria-hidden="true" />
         <h1 style={{ fontSize: 20 }}>{slug}.sectrai.com</h1>
-        <p className="sub">Bu isim şu an aktif bir ürüne bağlı değil.</p>
-        <a className="btn" href="https://www.sectrai.com">SECTRAI ana sayfası</a>
+        <p className="sub">{t("Bu isim şu an aktif bir ürüne bağlı değil.")}</p>
+        <a className="btn" href="https://www.sectrai.com">{t("SECTRAI ana sayfası")}</a>
       </div>
     </div>
   );

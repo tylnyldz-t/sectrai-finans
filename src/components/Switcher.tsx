@@ -8,6 +8,7 @@ import { ROOT_DOMAIN, workspaceUrl } from '@shared/domain.ts';
 import { api, doLogout } from '@/lib/api';
 import { useRouter } from '@/lib/router';
 import { useTheme } from '@/lib/theme';
+import { t } from '@/lib/i18n';
 
 export function wsHref(slug: string): string {
   return window.location.hostname.endsWith(ROOT_DOMAIN) ? workspaceUrl(slug) : `/w/${slug}`;
@@ -52,22 +53,22 @@ export function Switcher({
 
   return (
     <div className="switcher" ref={ref}>
-      <button className="btn btn-ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Hesap ve çalışma alanları">
+      <button className="btn btn-ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={t("Hesap ve çalışma alanları")}>
         <span className="avatar" aria-hidden="true">{user.name.charAt(0).toLocaleUpperCase('tr-TR')}</span>
-        {label && <span className="switcher-trigger-label">{label}</span>}
+        {label && <span className="switcher-trigger-label">{t(label)}</span>}
         <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && (
         <div className="switcher-menu" role="menu">
           <div style={{ padding: '8px 10px 4px' }}>
             <div style={{ fontWeight: 700, fontSize: 13.5 }}>{user.name}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{user.email} · Ücretsiz plan</div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{user.email} {t("· Ücretsiz plan")}</div>
           </div>
           <hr className="switcher-sep" />
-          <div className="switcher-label">Çalışma alanların</div>
+          <div className="switcher-label">{t("Çalışma alanların")}</div>
           {workspaces.length === 0 && (
             <div style={{ padding: '4px 10px 8px', fontSize: 12, color: 'var(--muted-2)' }}>
-              Henüz kurulum yok — UYGULA’da ilk sistemini kur.
+              {t("Henüz kurulum yok — UYGULA’da ilk sistemini kur.")}
             </div>
           )}
           {workspaces.map((w) => (
@@ -77,27 +78,27 @@ export function Switcher({
                 {w.title}
                 {w.slug === activeSlug && ' ✓'}
               </span>
-              <span className="sub">{w.slug ? `${w.slug}.${ROOT_DOMAIN}` : 'adres bekliyor'}</span>
+              <span className="sub">{w.slug ? `${w.slug}.${ROOT_DOMAIN}` : t('adres bekliyor')}</span>
             </button>
           ))}
           <hr className="switcher-sep" />
           <button className="switcher-item" role="menuitem" onClick={() => { setOpen(false); nav('/app'); }}>
-            <Sparkles size={14} aria-hidden="true" /> Ön kapı (KONUŞ | UYGULA)
+            <Sparkles size={14} aria-hidden="true" /> {t("Ön kapı (KONUŞ | UYGULA)")}
           </button>
           {user.platformRole === 'ADMIN' && (
             <button className="switcher-item" role="menuitem" onClick={() => { setOpen(false); nav('/admin'); }}>
-              <Shield size={14} aria-hidden="true" /> Yönetim paneli
+              <Shield size={14} aria-hidden="true" /> {t("Yönetim paneli")}
             </button>
           )}
           <button className="switcher-item" role="menuitem" onClick={toggle}>
             {theme === 'dark' ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />}
-            {theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
+            {t(theme === 'dark' ? 'Açık tema' : 'Koyu tema')}
           </button>
           <button className="switcher-item" role="menuitem" onClick={switchAccount}>
-            <User size={14} aria-hidden="true" /> Başka hesapla gir
+            <User size={14} aria-hidden="true" /> {t("Başka hesapla gir")}
           </button>
           <button className="switcher-item" role="menuitem" onClick={() => { void doLogout().finally(() => { window.location.href = '/'; }); }}>
-            <LogOut size={14} aria-hidden="true" /> Çıkış yap
+            <LogOut size={14} aria-hidden="true" /> {t("Çıkış yap")}
           </button>
         </div>
       )}

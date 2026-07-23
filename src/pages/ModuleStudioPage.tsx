@@ -1,121 +1,124 @@
-// Uyarlanabilir Modül Studio — Dashboard Design Puck'ından bilinçli olarak AYRI.
+// Uyarlanabilir Modül Studio — Dashboard Design yüzeyinden bilinçli olarak AYRI.
 // Burada yalnız sabit blok kimlikleri ve tiplenmiş başlık/görünürlük alanları düzenlenir;
-// sözleşme, veri şeması, kod/URL ve üçüncü taraf Puck props'ları saklanmaz.
+// sözleşme, veri şeması, kod/URL ve üçüncü taraf düzenleyici props'ları saklanmaz.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ClipboardCheck, FileDiff, LockKeyhole, Plus, Save, Send, ShieldCheck } from 'lucide-react';
-import { Puck, type Config, type Data } from '@puckeditor/core';
-import '@puckeditor/core/puck.css';
+import { ArrowLeft, Check, ClipboardCheck, FileDiff, LockKeyhole, Plus, Redo2, Save, Send, ShieldCheck, Undo2 } from 'lucide-react';
+import type { MasaLayout } from '@shared/masa.ts';
+import { normalizeMasaLayout } from '@shared/masa.ts';
 import type { Workspace } from '@shared/types.ts';
 import {
-  normalizeModuleRevisionInput,
-  type AdaptiveBlockType,
-  type ModuleBlockInstance,
   type ModuleRevisionV2,
   type WorkflowInstanceBundle,
   type WorkflowStepStatus,
   type WorkflowTemplateSpec,
 } from '@shared/adaptive-modules.ts';
 import { api, type AdaptiveModuleStudioItem } from '@/lib/api';
+import { FlatLayoutEditor } from './editor/FlatLayoutEditor';
+import { SchemaFieldPanel } from './editor/SchemaFieldPanel';
+import { editorLayoutFromOrder, editorOrderFromLayout, schemaValuesOnly } from './editor/editor-model';
+import {
+  revisionFromStudioEditor,
+  STUDIO_BLOCK_LABELS,
+  studioEditorDataFromRevision,
+  studioEditorItems,
+  studioPresetSchemaFor,
+  type StudioEditorData,
+  type StudioPresetSchemaResolver,
+} from './editor/studio-editor-model';
+import './editor/editor.css';
 
-type StudioPuckType = 'Ledger' | 'Form' | 'Table' | 'Workflow' | 'Timeline' | 'Metrics' | 'Reference';
-// blockId yalnız istemci-içi eşleme anahtarıdır; Puck alanı değildir ve kullanıcı düzenleyemez.
-type StudioBlockProps = { blockId?: string; title: string; visibility: 'visible' | 'hidden' };
-type StudioPuckComponents = Record<StudioPuckType, StudioBlockProps>;
+type StudioEditorSnapshot = { layout: MasaLayout; values: StudioEditorData['values'] };
+type StudioEditorHistory = { past: StudioEditorSnapshot[]; present: StudioEditorSnapshot; future: StudioEditorSnapshot[] };
 
-const PUCK_TYPE_BY_BLOCK: Record<AdaptiveBlockType, StudioPuckType> = {
-  'record-ledger': 'Ledger',
-  'record-form': 'Form',
-  'record-table': 'Table',
-  'step-workflow': 'Workflow',
-  'activity-timeline': 'Timeline',
-  'summary-metrics': 'Metrics',
-  'reference-link': 'Reference',
-};
+export function StudioRevisionEditor({
+  base,
+  status,
+  onSave,
+  schemaFor = studioPresetSchemaFor,
+}: {
+  base: ModuleRevisionV2;
+  status: 'idle' | 'saving' | 'error' | 'saved';
+  onSave: (data: StudioEditorData) => void;
+  schemaFor?: StudioPresetSchemaResolver;
+}) {
+  const initialData = useMemo(() => studioEditorDataFromRevision(base), [base]);
+  const initialItems = useMemo(() => studioEditorItems(base, initialData.values), [base, initialData]);
+  const [history, setHistory] = useState<StudioEditorHistory>(() => ({
+    past: [],
+    present: { layout: editorLayoutFromOrder(initialData.order, initialItems), values: initialData.values },
+    future: [],
+  }));
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(() => initialData.order[0] ?? null);
+  const items = studioEditorItems(base, history.present.values);
+  const selectedBlock = base.composition.find((block) => block.id === selectedBlockId) ?? null;
 
-const BLOCK_LABEL: Record<StudioPuckType, string> = {
-  Ledger: 'Kayıt defteri', Form: 'Kayıt formu', Table: 'Kayıt tablosu', Workflow: 'Manuel adımlar',
-  Timeline: 'Etkinlik zaman çizelgesi', Metrics: 'Özet metrikler', Reference: 'Referans bağlantısı',
-};
-
-function studioPreview(type: StudioPuckType) {
-  return function StudioPreview({ title, visibility }: StudioBlockProps) {
-    return (
-      <section className={`module-studio-preview${visibility === 'hidden' ? ' is-hidden' : ''}`}>
-        <span className="module-studio-preview-handle" aria-hidden="true">⠿</span>
-        <div><strong>{title}</strong><small>{BLOCK_LABEL[type]} · sabit şablon</small></div>
-        <span className="module-studio-preset">{visibility === 'hidden' ? 'GİZLİ' : 'İZİNLİ BLOK'}</span>
-      </section>
-    );
+  const commit = (next: StudioEditorSnapshot) => {
+    setHistory((current) => ({ past: [...current.past.slice(-49), current.present], present: next, future: [] }));
   };
-}
+  const undo = () => setHistory((current) => {
+    const previous = current.past.at(-1);
+    return previous ? { past: current.past.slice(0, -1), present: previous, future: [current.present, ...current.future] } : current;
+  });
+  const redo = () => setHistory((current) => {
+    const next = current.future[0];
+    return next ? { past: [...current.past, current.present].slice(-50), present: next, future: current.future.slice(1) } : current;
+  });
+  const setPresetValue = (fieldKey: string, value: unknown) => {
+    if (!selectedBlock) return;
+    const label = STUDIO_BLOCK_LABELS[selectedBlock.type];
+    const schema = schemaFor(selectedBlock.type, label);
+    commit({
+      ...history.present,
+      values: {
+        ...history.present.values,
+        [selectedBlock.id]: schemaValuesOnly(schema, {
+          ...(history.present.values[selectedBlock.id] ?? {}),
+          [fieldKey]: value,
+        }),
+      },
+    });
+  };
+  const save = () => {
+    const cleanLayout = normalizeMasaLayout(history.present.layout, items);
+    onSave({ order: editorOrderFromLayout(cleanLayout), values: history.present.values });
+  };
 
-// Bu config bir katalog değildir ve dışarıdan yüklenmez: yalnız derleme-zamanı allowlist.
-const studioPuckConfig: Config<StudioPuckComponents> = {
-  components: {
-    Ledger: { label: 'Kayıt defteri', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Ledger') },
-    Form: { label: 'Kayıt formu', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Form') },
-    Table: { label: 'Kayıt tablosu', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Table') },
-    Workflow: { label: 'Manuel adımlar', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Workflow') },
-    Timeline: { label: 'Etkinlik zaman çizelgesi', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Timeline') },
-    Metrics: { label: 'Özet metrikler', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Metrics') },
-    Reference: { label: 'Referans bağlantısı', fields: { title: { type: 'text', label: 'Başlık' }, visibility: { type: 'select', label: 'Görünürlük', options: [{ label: 'Görünür', value: 'visible' }, { label: 'Gizli', value: 'hidden' }] } }, render: studioPreview('Reference') },
-  },
-};
-
-function text(value: unknown): string | null {
-  return typeof value === 'string' ? value.trim() : null;
-}
-
-function object(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-
-function puckDataFromRevision(revision: ModuleRevisionV2): Data {
-  const blocks = new Map(revision.composition.map((block) => [block.id, block]));
-  return {
-    content: revision.presentation.layout.map((id) => {
-      const block = blocks.get(id)!;
-      return {
-        type: PUCK_TYPE_BY_BLOCK[block.type],
-        props: {
-          blockId: block.id,
-          title: typeof block.config.title === 'string' ? block.config.title : BLOCK_LABEL[PUCK_TYPE_BY_BLOCK[block.type]],
-          visibility: block.config.visible === false ? 'hidden' : 'visible',
-        },
-      };
-    }),
-  } as unknown as Data;
-}
-
-/**
- * Puck verisini güvenli revizyona indirger. Puck'ın kendi ara verisi ASLA kalıcılaşmaz:
- * her blok yalnız tanınan kimliğiyle mevcut blokla eşleştirilir, yalnız iki typed prop alınır.
- */
-export function revisionFromStudioPuck(data: Data, base: ModuleRevisionV2): { ok: true; value: Pick<ModuleRevisionV2, 'contract' | 'composition' | 'presentation'> } | { ok: false; issue: string } {
-  const raw = data as unknown as Record<string, unknown>;
-  if (!Array.isArray(raw.content) || raw.content.length !== base.composition.length) return { ok: false, issue: 'Her izinli blok tam olarak bir kez yer almalı.' };
-  const originals = new Map(base.composition.map((block) => [block.id, block]));
-  const seen = new Set<string>();
-  const composition: ModuleBlockInstance[] = [];
-  const layout: string[] = [];
-  for (const item of raw.content) {
-    const entry = object(item);
-    const props = entry ? object(entry.props) : null;
-    const blockId = props ? text(props.blockId) : null;
-    const title = props ? text(props.title) : null;
-    const visibility = props?.visibility;
-    if (!entry || !props || !blockId || !title || title.length > 180) return { ok: false, issue: 'Blok başlığı veya kimliği geçersiz.' };
-    if (Object.keys(props).some((key) => !['blockId', 'title', 'visibility'].includes(key))) return { ok: false, issue: 'İzinli olmayan Puck özelliği algılandı.' };
-    if (visibility !== 'visible' && visibility !== 'hidden') return { ok: false, issue: 'Görünürlük seçimi geçersiz.' };
-    const original = originals.get(blockId);
-    if (!original || seen.has(blockId) || entry.type !== PUCK_TYPE_BY_BLOCK[original.type]) return { ok: false, issue: 'Yabancı veya tekrarlı Puck bloğu algılandı.' };
-    seen.add(blockId);
-    composition.push({ ...original, config: { ...original.config, title, visible: visibility === 'visible' } });
-    layout.push(blockId);
-  }
-  const normalized = normalizeModuleRevisionInput({ contract: base.contract, composition, presentation: { version: 1, layout } });
-  return normalized.ok ? { ok: true, value: normalized.value } : { ok: false, issue: normalized.issues[0] ?? 'Taslak güvenlik doğrulamasını geçemedi.' };
+  return (
+    <section aria-label="Modül blok düzenleyicisi">
+      <div className="schema-editor-toolbar module-studio-toolbar" aria-label="Düzenleyici araçları">
+        <div>
+          <button type="button" className="btn" disabled={history.past.length === 0} onClick={undo}><Undo2 size={15} aria-hidden="true" /> Geri al</button>
+          <button type="button" className="btn" disabled={history.future.length === 0} onClick={redo}><Redo2 size={15} aria-hidden="true" /> İleri al</button>
+        </div>
+        <button className="btn btn-primary" type="button" disabled={status === 'saving'} onClick={save}>
+          <Save size={15} aria-hidden="true" /> {status === 'saving' ? 'Kaydediliyor…' : 'Taslağı kaydet'}
+        </button>
+      </div>
+      <div className="module-studio-schema-editor">
+        <section className="schema-editor-workspace" aria-label="Modül blok sırası">
+          <div className="schema-editor-preview-stage">
+            <div className="design-flat-canvas module-studio-flat-canvas">
+              <FlatLayoutEditor
+                items={items}
+                layout={history.present.layout}
+                selectedId={selectedBlockId}
+                onSelect={setSelectedBlockId}
+                onChange={(layout) => commit({ ...history.present, layout })}
+                ariaLabel="Modül blok sırası"
+              />
+            </div>
+          </div>
+        </section>
+        <SchemaFieldPanel
+          module={selectedBlock ? { id: selectedBlock.type, label: STUDIO_BLOCK_LABELS[selectedBlock.type] } : null}
+          values={selectedBlock ? history.present.values[selectedBlock.id] ?? {} : {}}
+          onChange={setPresetValue}
+          schemaFor={schemaFor}
+        />
+      </div>
+    </section>
+  );
 }
 
 function diffSummary(base: ModuleRevisionV2, next: ModuleRevisionV2): string[] {
@@ -218,9 +221,9 @@ export function ModuleStudioPage({ workspace, onBack }: { workspace: Workspace; 
   const reviewRevision = savedDraft ?? selected?.revisions.find((revision) => revision.state === 'proposed' && revision.basedOnRevisionId === base?.id) ?? null;
   const diff = useMemo(() => base && reviewRevision ? diffSummary(base, reviewRevision) : [], [base, reviewRevision]);
 
-  const save = async (data: Data) => {
+  const save = async (data: StudioEditorData) => {
     if (!selected || !base) return;
-    const next = revisionFromStudioPuck(data, base);
+    const next = revisionFromStudioEditor(data, base);
     if (!next.ok) { setStatus('error'); setMessage(next.issue); return; }
     setStatus('saving'); setMessage('');
     try {
@@ -246,7 +249,7 @@ export function ModuleStudioPage({ workspace, onBack }: { workspace: Workspace; 
   };
 
   return (
-    <main className="design-page module-studio-page">
+    <main className="design-page schema-editor-page module-studio-page">
       <div className="design-page-intro">
         <button className="btn design-back" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Panoya dön</button>
         <div>
@@ -264,14 +267,11 @@ export function ModuleStudioPage({ workspace, onBack }: { workspace: Workspace; 
           </aside>
           <section className="module-studio-editor">
             <div className="module-studio-protected"><LockKeyhole size={14} aria-hidden="true" /><span>Korunan sözleşme: {base.contract.entities.length} varlık, {base.contract.workflows.length} manuel akış, yalnız standart veri. Kod, URL, yabancı blok ve serbest prop saklanmaz.</span></div>
-            <Puck
+            <StudioRevisionEditor
               key={`${selected.definition.id}-${base.id}`}
-              config={studioPuckConfig}
-              data={puckDataFromRevision(base)}
-              headerTitle={`${selected.definition.title} düzenleme`}
-              permissions={{ insert: false, delete: false, duplicate: false, drag: true, edit: true }}
-              onPublish={(data) => { void save(data as Data); }}
-              renderHeaderActions={({ state }) => <button className="Puck__button Puck__button--primary" type="button" disabled={status === 'saving'} onClick={() => { void save(state.data as Data); }}><Save size={15} aria-hidden="true" /> {status === 'saving' ? 'Kaydediliyor…' : 'Taslağı kaydet'}</button>}
+              base={base}
+              status={status}
+              onSave={(data) => { void save(data); }}
             />
             {reviewRevision && <section className="module-studio-diff"><h2><FileDiff size={17} aria-hidden="true" /> Yayın öncesi fark</h2><ul>{diff.map((line) => <li key={line}>{line}</li>)}</ul>{reviewRevision.state === 'draft' ? <button className="btn" disabled={status === 'saving'} onClick={() => void propose()}><Send size={15} aria-hidden="true" /> İncelemeye gönder</button> : reviewRevision.state === 'proposed' ? <button className="btn btn-primary" disabled={status === 'saving'} onClick={() => void approve()}><ShieldCheck size={15} aria-hidden="true" /> Owner olarak onayla ve yayınla</button> : null}</section>}
             {base.contract.workflows.length > 0 && <WorkflowTracker workspaceId={workspace.id} definitionId={selected.definition.id} workflows={base.contract.workflows} instances={workflowInstances} onRefresh={reload} />}
@@ -281,3 +281,5 @@ export function ModuleStudioPage({ workspace, onBack }: { workspace: Workspace; 
     </main>
   );
 }
+
+export default ModuleStudioPage;

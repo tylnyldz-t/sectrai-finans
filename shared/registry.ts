@@ -12,6 +12,18 @@ export interface SectorInfo {
 
 const M = (id: string, label: string) => ({ id, label });
 
+export const BRAND_IDENTITY_MODULE_ID = 'brand-identity';
+export const BRAND_IDENTITY_MODULE_LABEL = 'Marka Kimliği';
+export const BRAND_IDENTITY_SECTOR_IDS = Object.freeze([
+  'manufacturing',
+  'retail',
+  'hospitality',
+  'real-estate',
+  'film-production',
+] as const);
+
+const BRAND_IDENTITY_MODULE = () => M(BRAND_IDENTITY_MODULE_ID, BRAND_IDENTITY_MODULE_LABEL);
+
 export const SECTORS: SectorInfo[] = [
   {
     id: 'logistics',
@@ -61,7 +73,7 @@ export const SECTORS: SectorInfo[] = [
       M('bom-item', 'Reçete Kalemleri'), M('quality-check', 'Kalite Muayeneleri (QC)'), M('goods-receipt', 'Hammadde Kabul'),
       M('stock', 'Ardiye & Depo'), M('order', 'Satış Siparişleri'), M('ncr', 'Uygunsuzluk & CAPA'),
       M('marketplace', 'Fason & Kapasite Pazarı'), M('agreements', 'Tedarik Sözleşmeleri'), M('finance', 'Maliyet & Kasa'),
-      M('documents', 'Kalite & Teknik Belgeler'),
+      M('documents', 'Kalite & Teknik Belgeler'), BRAND_IDENTITY_MODULE(),
     ],
   },
   {
@@ -73,7 +85,7 @@ export const SECTORS: SectorInfo[] = [
       M('customer-return', 'İadeler / RMA'), M('order', 'Satınalma Siparişleri'), M('crm', 'Müşteriler & Tedarikçiler'),
       M('finance', 'Kasa & Ödeme'), M('marketplace', 'Tedarik Pazarı'), M('trust', 'Müşteri Değerlendirme'),
       M('agreements', 'Tedarik Anlaşmaları'), M('social-media', 'E-ticaret & Marka'), M('site-builder', 'Mağaza Landing'),
-      M('google-presence', 'Google İşletme'), M('surveillance', 'Mağaza Kameraları'),
+      M('google-presence', 'Google İşletme'), M('surveillance', 'Mağaza Kameraları'), BRAND_IDENTITY_MODULE(),
     ],
   },
   {
@@ -85,7 +97,7 @@ export const SECTORS: SectorInfo[] = [
       M('hk-task', 'Housekeeping'), M('pos-order', 'Adisyonlar / POS'), M('pos-line', 'Adisyon Kalemleri'),
       M('bom-recipe', 'Yemek Reçeteleri'), M('crm', 'Misafirler'), M('schedule', 'Rezervasyon Takvimi'),
       M('finance', 'Gelir & Kasa'), M('consent', 'Misafir Rızaları'), M('ncr', 'HACCP Bulguları'),
-      M('incentive', 'Ekip Primi'), M('google-presence', 'Google Yorumları'),
+      M('incentive', 'Ekip Primi'), M('google-presence', 'Google Yorumları'), BRAND_IDENTITY_MODULE(),
     ],
   },
   {
@@ -139,7 +151,7 @@ export const SECTORS: SectorInfo[] = [
     modules: [
       M('deal-commission', 'Satış & Komisyon'), M('marketplace', 'Portföy & İlanlar'), M('marketplace-offer', 'Alıcı Teklifleri'),
       M('crm', 'Müşteriler & Mal Sahipleri'), M('work-item', 'Portföy İşleri'), M('finance', 'Kasa & Komisyon'),
-      M('agreements', 'Satış/Kira Sözleşmeleri'),
+      M('agreements', 'Satış/Kira Sözleşmeleri'), BRAND_IDENTITY_MODULE(),
     ],
   },
   {
@@ -161,6 +173,7 @@ export const SECTORS: SectorInfo[] = [
       M('shooting-schedule', 'Çekim Programı'), M('call-sheet', 'Günlük Call Sheet'), M('dood', 'Day Out of Days'),
       M('cast-seat', 'Cast Katmanları'), M('crew-seat', 'Crew & Departmanlar'), M('vendor-engagement', 'Taşeronlar & Vendorlar'),
       M('cost-report', 'Bütçe & Cost Report'), M('production-document', 'Belgeler & Deliller'), M('post-delivery', 'Post & Delivery'),
+      BRAND_IDENTITY_MODULE(),
     ],
   },
   {

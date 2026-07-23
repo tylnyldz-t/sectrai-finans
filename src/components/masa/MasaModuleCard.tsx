@@ -4,6 +4,7 @@
 import { GripVertical, Minus, Pin, Plus, X } from 'lucide-react';
 import { useCallback, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { MASA_KEY_STEP, type MasaModule } from '@shared/masa.ts';
+import { t } from '@/lib/i18n';
 
 export type MasaLifecycle = 'live' | 'pending' | 'empty' | 'synthetic';
 
@@ -108,7 +109,7 @@ export function MasaModuleCard({
     <section
       ref={elRef}
       className={`masa-card${module.pinned ? ' pinned' : ''}${module.collapsed ? ' collapsed' : ''}`}
-      aria-label={`${module.label} modülü`}
+      aria-label={t('{label} modülü', { label: t(module.label) })}
       style={{ left: module.x, top: module.y, width: module.w, height: module.collapsed ? undefined : module.h, zIndex: module.z }}
       onPointerDown={() => { if (editable) onFocus(module.id); }}
     >
@@ -116,31 +117,33 @@ export function MasaModuleCard({
         className={`masa-card-head${module.pinned ? ' locked' : ''}`}
         role="toolbar"
         tabIndex={editable ? 0 : -1}
-        aria-label={editable ? `${module.label}: ok tuşlarıyla taşı, Shift+ok ile boyutlandır` : `${module.label} modülü`}
+        aria-label={editable
+          ? t('{label}: ok tuşlarıyla taşı, Shift+ok ile boyutlandır', { label: t(module.label) })
+          : t('{label} modülü', { label: t(module.label) })}
         onPointerDown={startDrag}
         onKeyDown={onHeadKeyDown}
       >
         {editable && <GripVertical className="masa-drag-handle" size={15} aria-hidden="true" />}
-        <span className="masa-type">{typeLabel}</span>
-        <h3 className="masa-card-title">{module.label}</h3>
-        {editable && <span className="masa-dimensions" title="Kart boyutu">{module.w}×{module.h}</span>}
+        <span className="masa-type">{t(typeLabel)}</span>
+        <h3 className="masa-card-title">{t(module.label)}</h3>
+        {editable && <span className="masa-dimensions" title={t('Kart boyutu')}>{module.w}×{module.h}</span>}
         {editable && <div className="masa-card-ctrls">
-          <button className={`masa-ic${module.pinned ? ' on' : ''}`} title={module.pinned ? 'Konumu aç' : 'Konumu kilitle'} aria-label={module.pinned ? 'Konumu aç' : 'Konumu kilitle'} aria-pressed={module.pinned} onClick={() => onTogglePin(module.id)}>
+          <button className={`masa-ic${module.pinned ? ' on' : ''}`} title={t(module.pinned ? 'Konumu aç' : 'Konumu kilitle')} aria-label={t(module.pinned ? 'Konumu aç' : 'Konumu kilitle')} aria-pressed={module.pinned} onClick={() => onTogglePin(module.id)}>
             <Pin size={15} aria-hidden="true" fill={module.pinned ? 'currentColor' : 'none'} />
           </button>
-          <button className="masa-ic" title={module.collapsed ? 'Genişlet' : 'Daralt'} aria-label={module.collapsed ? 'Genişlet' : 'Daralt'} onClick={() => onToggleCollapse(module.id)}>
+          <button className="masa-ic" title={t(module.collapsed ? 'Genişlet' : 'Daralt')} aria-label={t(module.collapsed ? 'Genişlet' : 'Daralt')} onClick={() => onToggleCollapse(module.id)}>
             {module.collapsed ? <Plus size={15} aria-hidden="true" /> : <Minus size={15} aria-hidden="true" />}
           </button>
-          <button className="masa-ic" title="Modülü kapat" aria-label="Modülü kapat" onClick={() => onClose(module.id)}><X size={15} aria-hidden="true" /></button>
+          <button className="masa-ic" title={t("Modülü kapat")} aria-label={t("Modülü kapat")} onClick={() => onClose(module.id)}><X size={15} aria-hidden="true" /></button>
         </div>}
       </div>
       <div className="masa-card-meta">
-        <span className="masa-meta-src">{metaLine}</span>
-        <span className={`masa-life ${life.cls}`}>{life.label}</span>
+        <span className="masa-meta-src">{t(metaLine)}</span>
+        <span className={`masa-life ${life.cls}`}>{t(life.label)}</span>
       </div>
       {!module.collapsed && <div className="masa-card-body">{children}</div>}
       {editable && !module.collapsed && !module.pinned && (
-        <button className="masa-resize-handle" type="button" onPointerDown={startResize} aria-label={`${module.label} kartını boyutlandır`} title="Köşeden boyutlandır">
+        <button className="masa-resize-handle" type="button" onPointerDown={startResize} aria-label={t('{label} kartını boyutlandır', { label: t(module.label) })} title={t("Köşeden boyutlandır")}>
           <GripVertical size={14} aria-hidden="true" />
         </button>
       )}

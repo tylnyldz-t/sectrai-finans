@@ -9,11 +9,13 @@ import { api, doLogout } from '@/lib/api';
 import { useRouter } from '@/lib/router';
 import { MasaDashboard } from '@/components/masa/MasaDashboard';
 import { MobileMasaDashboard } from '@/components/masa/MobileMasaDashboard';
+import { t } from '@/lib/i18n';
 
-// Puck editörü yalnız owner'ın /tasarim rotasında yüklenir; normal dashboard yükünü büyütmez.
-const DashboardDesignPage = lazy(() => import('@/pages/DashboardDesignPage').then(({ DashboardDesignPage: Page }) => ({ default: Page })));
-// Modül Studio kendi Puck config'i ve kendi API'siyle yüklenir; Dashboard Design'a ortak değildir.
-const ModuleStudioPage = lazy(() => import('@/pages/ModuleStudioPage').then(({ ModuleStudioPage: Page }) => ({ default: Page })));
+// Şema-güdümlü flat editör yalnız owner'ın /tasarim rotasında yüklenir; normal dashboard yükünü büyütmez.
+const DashboardDesignPage = lazy(() => import('@/pages/DashboardDesignPage'));
+// Modül Studio ikinci göç yüzeyidir; kendi Puck config'i ve API'si Dashboard Design'a ortak değildir.
+const ModuleStudioPage = lazy(() => import('@/pages/ModuleStudioPage'));
+const PAGE_FALLBACK = <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>{t("Yükleniyor…")}</p></div>;
 
 export function DashboardPage({ slug, basePath, designMode = false, studioMode = false, moduleId }: { slug: string; basePath: string; designMode?: boolean; studioMode?: boolean; moduleId?: string }) {
   const { nav } = useRouter();
@@ -69,24 +71,24 @@ export function DashboardPage({ slug, basePath, designMode = false, studioMode =
       <div className="auth-wrap">
         <div className="card auth-card pending-card">
           <div className="orb" aria-hidden="true" />
-          <h1 style={{ fontSize: 20 }}>Bu alana erişimin yok</h1>
-          <p className="sub">{error}</p>
+          <h1 style={{ fontSize: 20 }}>{t("Bu alana erişimin yok")}</h1>
+          <p className="sub">{t(error)}</p>
           <p className="sub" style={{ fontSize: 12.5 }}>
-            Bu çalışma alanı başka bir hesaba ait olabilir. Onu kuran hesapla ya da yönetici hesabıyla giriş yap.
+            {t("Bu çalışma alanı başka bir hesaba ait olabilir. Onu kuran hesapla ya da yönetici hesabıyla giriş yap.")}
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn" onClick={goFront}>Ön kapıya dön</button>
-            <button className="btn btn-primary" onClick={() => void switchAccount()}>Çıkış yap / başka hesapla gir</button>
+            <button className="btn" onClick={goFront}>{t("Ön kapıya dön")}</button>
+            <button className="btn btn-primary" onClick={() => void switchAccount()}>{t("Çıkış yap / başka hesapla gir")}</button>
           </div>
         </div>
       </div>
     );
   }
-  if (!user || !ws) return <div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>Yükleniyor…</p></div>;
+  if (!user || !ws) return PAGE_FALLBACK;
 
   if (designMode) {
     return (
-      <Suspense fallback={<div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>Tasarım editörü yükleniyor…</p></div>}>
+      <Suspense fallback={PAGE_FALLBACK}>
         <DashboardDesignPage workspace={ws} onBack={() => nav(`/w/${slug}`)} onSaved={setWs} />
       </Suspense>
     );
@@ -94,10 +96,10 @@ export function DashboardPage({ slug, basePath, designMode = false, studioMode =
 
   if (studioMode) {
     if (!adaptiveModulesEnabled) {
-      return <div className="auth-wrap"><div className="card auth-card pending-card"><h1 style={{ fontSize: 20 }}>Modül Studio etkin değil</h1><p className="sub">Bu çalışma alanında uyarlanabilir modül beta flag’i kapalı.</p><button className="btn" onClick={() => nav(basePath || '/')}>Panoya dön</button></div></div>;
+      return <div className="auth-wrap"><div className="card auth-card pending-card"><h1 style={{ fontSize: 20 }}>{t("Modül Studio etkin değil")}</h1><p className="sub">{t("Bu çalışma alanında uyarlanabilir modül beta flag’i kapalı.")}</p><button className="btn" onClick={() => nav(basePath || '/')}>{t("Panoya dön")}</button></div></div>;
     }
     return (
-      <Suspense fallback={<div className="auth-wrap"><p style={{ color: 'var(--muted)' }}>Modül Studio yükleniyor…</p></div>}>
+      <Suspense fallback={PAGE_FALLBACK}>
         <ModuleStudioPage workspace={ws} onBack={() => nav(basePath || '/')} />
       </Suspense>
     );
